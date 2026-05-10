@@ -23,6 +23,23 @@ function nextQuoteNumber() {
   return `COT-${String(quoteCounter).padStart(3, '0')}`;
 }
 
+function formatearPago(tipo, total) {
+  const fmt = v => '$' + Number(v).toFixed(2);
+  switch (tipo) {
+    case '50/50': {
+      const mitad = total / 2;
+      return `50% anticipo (${fmt(mitad)}) — 50% contra entrega (${fmt(total - mitad)})`;
+    }
+    case '40/30/30': {
+      const a = total * 0.4, b = total * 0.3;
+      return `40% anticipo (${fmt(a)}) — 30% en proceso (${fmt(b)}) — 30% contra entrega (${fmt(total - a - b)})`;
+    }
+    case 'contraentrega': return '100% contra entrega';
+    case 'credito30':     return 'Crédito a 30 días';
+    default:              return tipo;
+  }
+}
+
 function fechaHoy() {
   return new Date().toLocaleDateString('es-SV', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -155,9 +172,10 @@ app.post('/cotizar', async (req, res) => {
       ...item,
       total: Number(item.cantidad) * Number(item.precioUnit),
     }));
-    datos.subtotal = datos.items.reduce((s, i) => s + i.total, 0);
-    datos.iva      = conIva ? datos.subtotal * 0.13 : 0;
-    datos.total    = datos.subtotal + datos.iva;
+    datos.subtotal  = datos.items.reduce((s, i) => s + i.total, 0);
+    datos.iva       = conIva ? datos.subtotal * 0.13 : 0;
+    datos.total     = datos.subtotal + datos.iva;
+    datos.formaPago = formatearPago(formaPago, datos.total);
 
     // 3 — Generar HTML → PDF con Puppeteer
     const html       = generarHtmlCotizacion(datos, conBanco, conFirma, LOGO_B64);
