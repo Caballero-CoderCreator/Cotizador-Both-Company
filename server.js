@@ -10,6 +10,26 @@ const puppeteer = require('puppeteer');
 const LOGO_B64 = 'data:image/jpeg;base64,' +
   fs.readFileSync(path.join(__dirname, 'logo.jpeg')).toString('base64');
 
+// ── Contador secuencial de cotizaciones ──
+const COUNTER_FILE = path.join(__dirname, 'counter.json');
+let quoteCounter = 0;
+try {
+  quoteCounter = JSON.parse(fs.readFileSync(COUNTER_FILE, 'utf8')).n || 0;
+} catch { quoteCounter = 0; }
+
+function nextQuoteNumber() {
+  quoteCounter++;
+  try { fs.writeFileSync(COUNTER_FILE, JSON.stringify({ n: quoteCounter }), 'utf8'); } catch {}
+  return `COT-${String(quoteCounter).padStart(3, '0')}`;
+}
+
+function fechaHoy() {
+  return new Date().toLocaleDateString('es-SV', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    timeZone: 'America/El_Salvador',
+  });
+}
+
 const app      = express();
 const PORT     = process.env.PORT || 3000;
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -56,15 +76,12 @@ REGLAS:
 2. Asigna precio unitario según la tabla. Si hay bordados o personalización extra incluidos en la descripción, ajusta el precio o agrega línea de bordado.
 3. Calcula total por línea. Suma todos para obtener subtotal.
 4. Si conIva es true: total = subtotal * 1.13, iva = subtotal * 0.13. Si es false: iva = 0, total = subtotal.
-5. El número de cotización sigue el formato COT-YYYYMMDD-XXX donde XXX son las 3 primeras letras del cliente en mayúsculas.
-6. Responde ÚNICAMENTE con JSON válido, sin texto adicional ni bloques de código markdown.
+5. Responde ÚNICAMENTE con JSON válido, sin texto adicional ni bloques de código markdown.
 
 FORMATO JSON DE RESPUESTA:
 {
-  "numero": "COT-20260509-PRO",
   "cliente": "Nombre del cliente",
   "contacto": "Persona de contacto o vacío",
-  "fecha": "09/05/2026",
   "items": [
     {
       "descripcion": "Descripción completa del producto",
@@ -103,7 +120,7 @@ app.post('/cotizar', async (req, res) => {
       `Incluir IVA (13%): ${conIva ? 'Sí' : 'No'}`,
       `Mostrar datos bancarios: ${conBanco ? 'Sí' : 'No'}`,
       `Validez de oferta: ${validez15 ? '15 días' : 'Sin especificar'}`,
-      `Fecha de hoy: ${new Date().toLocaleDateString('es-SV', { day:'2-digit', month:'2-digit', year:'numeric' })}`,
+      `Fecha de hoy: ${fechaHoy()}`,
     ].join('\n');
 
     const response = await anthropic.messages.create({
@@ -128,6 +145,10 @@ app.post('/cotizar', async (req, res) => {
       if (!match) throw new Error('Claude no devolvió JSON válido.');
       datos = JSON.parse(match[0]);
     }
+
+    // Número y fecha los controla el servidor — no Claude
+    datos.numero = nextQuoteNumber();
+    datos.fecha  = fechaHoy();
 
     // 3 — Generar HTML → PDF con Puppeteer
     const html       = generarHtmlCotizacion(datos, conBanco, conFirma, LOGO_B64);
