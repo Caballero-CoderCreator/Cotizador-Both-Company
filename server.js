@@ -150,6 +150,15 @@ app.post('/cotizar', async (req, res) => {
     datos.numero = nextQuoteNumber();
     datos.fecha  = fechaHoy();
 
+    // Total por línea siempre calculado aquí — Claude a veces lo omite
+    datos.items = datos.items.map(item => ({
+      ...item,
+      total: Number(item.cantidad) * Number(item.precioUnit),
+    }));
+    datos.subtotal = datos.items.reduce((s, i) => s + i.total, 0);
+    datos.iva      = conIva ? datos.subtotal * 0.13 : 0;
+    datos.total    = datos.subtotal + datos.iva;
+
     // 3 — Generar HTML → PDF con Puppeteer
     const html       = generarHtmlCotizacion(datos, conBanco, conFirma, LOGO_B64);
     const browser    = await puppeteer.launch({
