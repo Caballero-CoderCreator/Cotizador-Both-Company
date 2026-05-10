@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cotizador — Both Company</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --azul:     #1a2e4a;
+      --azul-med: #243d62;
+      --azul-light: #e8eef6;
+      --dorado:   #f0b429;
+      --dorado-light: #fef3d0;
+      --gris:     #f5f7fa;
+      --gris-med: #e2e8f0;
+      --texto:    #1e293b;
+      --texto-suave: #64748b;
+      --verde:    #16a34a;
+      --rojo:     #dc2626;
+      --blanco:   #ffffff;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gris);
+      color: var(--texto);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--azul);
+      padding: 0 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--dorado);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 18px;
+      color: var(--azul);
+    }
+
+    .logo-text {
+      color: var(--blanco);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .logo-sub {
+      color: var(--dorado);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: block;
+      line-height: 1;
+      margin-top: 1px;
+    }
+
+    .header-badge {
+      background: var(--dorado);
+      color: var(--azul);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── LAYOUT PRINCIPAL ── */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px 60px;
+    }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--azul);
+      margin-bottom: 6px;
+    }
+
+    .page-sub {
+      color: var(--texto-suave);
+      font-size: 15px;
+      margin-bottom: 36px;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--blanco);
+      border-radius: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--texto-suave);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title::before {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 14px;
+      background: var(--dorado);
+      border-radius: 2px;
+    }
+
+    /* ── FORMULARIO ── */
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .form-row.single { grid-template-columns: 1fr; }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--texto);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .required { color: var(--rojo); margin-left: 2px; }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      border: 1.5px solid var(--gris-med);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--texto);
+      background: var(--blanco);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--azul);
+      box-shadow: 0 0 0 3px rgba(26,46,74,0.1);
+    }
+
+    textarea.mensaje {
+      min-height: 160px;
+      line-height: 1.6;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--texto-suave);
+      margin-top: 5px;
+    }
+
+    /* ── OPCIONES EXTRA ── */
+    .toggles {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .toggle-chip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      border: 1.5px solid var(--gris-med);
+      border-radius: 30px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--texto-suave);
+      transition: all 0.15s;
+      user-select: none;
+      background: var(--blanco);
+    }
+
+    .toggle-chip input { display: none; }
+
+    .toggle-chip:has(input:checked) {
+      border-color: var(--azul);
+      background: var(--azul-light);
+      color: var(--azul);
+      font-weight: 600;
+    }
+
+    .toggle-chip .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--gris-med);
+      transition: background 0.15s;
+    }
+
+    .toggle-chip:has(input:checked) .dot { background: var(--azul); }
+
+    /* ── BOTÓN PRINCIPAL ── */
+    .btn-generar {
+      width: 100%;
+      padding: 16px;
+      background: var(--azul);
+      color: var(--blanco);
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: background 0.2s, transform 0.1s;
+      letter-spacing: 0.3px;
+    }
+
+    .btn-generar:hover { background: var(--azul-med); transform: translateY(-1px); }
+    .btn-generar:active { transform: translateY(0); }
+    .btn-generar:disabled {
+      background: var(--gris-med);
+      color: var(--texto-suave);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-icon { font-size: 20px; }
+
+    /* ── RESULTADO ── */
+    #resultado { display: none; }
+
+    .resultado-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .resultado-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #dcfce7;
+      color: var(--verde);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+
+    .resultado-num {
+      font-size: 13px;
+      color: var(--texto-suave);
+      font-weight: 500;
+    }
+
+    .preview-box {
+      background: var(--gris);
+      border: 1.5px solid var(--gris-med);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      font-family: inherit;
+      max-height: 340px;
+      overflow-y: auto;
+    }
+
+    .preview-box h3 {
+      font-size: 16px;
+      color: var(--azul);
+      margin-bottom: 12px;
+    }
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 12px 0;
+    }
+
+    .items-table th {
+      background: var(--azul);
+      color: var(--blanco);
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    .items-table th:last-child,
+    .items-table td:last-child { text-align: right; }
+
+    .items-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--gris-med);
+    }
+
+    .items-table tr:nth-child(even) td { background: var(--gris); }
+
+    .total-row td {
+      background: var(--azul) !important;
+      color: var(--blanco);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .acciones {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn-pdf {
+      padding: 14px;
+      background: var(--dorado);
+      color: var(--azul);
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-pdf:hover { background: #e0a820; transform: translateY(-1px); }
+
+    .btn-nueva {
+      padding: 14px;
+      background: var(--blanco);
+      color: var(--azul);
+      border: 2px solid var(--azul);
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+
+    .btn-nueva:hover { background: var(--azul-light); }
+
+    /* ── LOADING ── */
+    #loading { display: none; }
+
+    .loading-inner {
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid var(--gris-med);
+      border-top-color: var(--azul);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-size: 15px;
+      color: var(--texto-suave);
+      font-weight: 500;
+    }
+
+    .loading-steps {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--texto-suave);
+    }
+
+    .step { opacity: 0.4; transition: opacity 0.3s; }
+    .step.active { opacity: 1; color: var(--azul); font-weight: 600; }
+    .step.done { opacity: 0.7; }
+    .step.done::before { content: '✓ '; color: var(--verde); }
+
+    /* ── AVISO API ── */
+    .aviso-api {
+      background: var(--dorado-light);
+      border: 1.5px solid var(--dorado);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 13px;
+      color: #78350f;
+      margin-bottom: 24px;
+    }
+
+    .aviso-api strong { display: block; font-size: 13px; margin-bottom: 2px; }
+
+    /* ── ERROR ── */
+    .error-box {
+      background: #fef2f2;
+      border: 1.5px solid #fca5a5;
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: var(--rojo);
+      display: none;
+      margin-bottom: 16px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--texto-suave);
+      padding: 24px;
+      border-top: 1px solid var(--gris-med);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .form-row { grid-template-columns: 1fr; }
+      .acciones { grid-template-columns: 1fr; }
+      .container { padding: 24px 16px 48px; }
+      .card { padding: 20px; }
+      header { padding: 0 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">B</div>
+    <div>
+      <span class="logo-text">BOTH COMPANY</span>
+      <span class="logo-sub">Cotizador de Uniformes</span>
+    </div>
+  </div>
+  <span class="header-badge">v1.0</span>
+</header>
+
+<!-- CONTENIDO -->
+<div class="container">
+
+  <h1 class="page-title">Nueva Cotización</h1>
+  <p class="page-sub">Pega el mensaje del cliente y genera la cotización profesional en segundos.</p>
+
+  <!-- AVISO API — oculto en producción -->
+  <div class="aviso-api" id="avisoApi" style="display:none"></div>
+
+  <!-- FORMULARIO -->
+  <div class="card">
+    <div class="card-title">Datos del cliente</div>
+    <div class="form-row">
+      <div>
+        <label>Empresa o nombre del cliente <span class="required">*</span></label>
+        <input type="text" id="cliente" placeholder="Ej: Colegio San Pablo" />
+      </div>
+      <div>
+        <label>Persona de contacto</label>
+        <input type="text" id="contacto" placeholder="Ej: Lic. Jessy Artiga" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Mensaje del cliente</div>
+    <div class="form-row single">
+      <div>
+        <label>Pega aquí el mensaje de WhatsApp <span class="required">*</span></label>
+        <textarea class="mensaje" id="mensaje"
+          placeholder="Pega el mensaje exacto del cliente. Ejemplo:&#10;&#10;Hola buenas tardes, necesito cotizar para nuestra empresa:&#10;- 25 polos color azul marino con logo bordado, tallas S, M y L&#10;- 25 pantalones tipo sincatex negros&#10;Somos 25 personas en total. ¿Cuánto costaría?"></textarea>
+        <p class="hint">Mientras más detallado el mensaje, más precisa será la cotización.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Opciones de la cotización</div>
+    <div class="form-row">
+      <div>
+        <label>Forma de pago</label>
+        <select id="formaPago">
+          <option value="50/50">50% anticipo — 50% contra entrega</option>
+          <option value="contraentrega">100% contra entrega</option>
+          <option value="40/30/30">40% anticipo — 30% en proceso — 30% contra entrega</option>
+          <option value="credito30">Crédito a 30 días</option>
+        </select>
+      </div>
+      <div>
+        <label>Tiempo de entrega</label>
+        <select id="entrega">
+          <option value="5 días">5 días</option>
+          <option value="10 días">10 días</option>
+          <option value="15 días">15 días</option>
+          <option value="20 días">20 días</option>
+          <option value="25 días">25 días</option>
+          <option value="30 días" selected>30 días</option>
+          <option value="35 días">35 días</option>
+          <option value="40 días">40 días</option>
+          <option value="45 días">45 días</option>
+          <option value="A convenir">A convenir</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label>Opciones adicionales</label>
+      <div class="toggles">
+        <label class="toggle-chip">
+          <input type="checkbox" id="conIva" />
+          <span class="dot"></span>
+          Incluir IVA (13%)
+        </label>
+        <label class="toggle-chip">
+          <input type="checkbox" id="conBanco" checked />
+          <span class="dot"></span>
+          Mostrar datos bancarios
+        </label>
+        <label class="toggle-chip">
+          <input type="checkbox" id="validez15" checked />
+          <span class="dot"></span>
+          Validez 15 días
+        </label>
+        <label class="toggle-chip">
+          <input type="checkbox" id="conFirma" />
+          <span class="dot"></span>
+          Firma de aprobación del cliente
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-box" id="errorBox">⚠ Por favor completa el nombre del cliente y el mensaje antes de continuar.</div>
+
+  <!-- BOTÓN GENERAR -->
+  <button class="btn-generar" id="btnGenerar" onclick="generarCotizacion()">
+    <span class="btn-icon">📄</span>
+    Generar Cotización
+  </button>
+
+  <!-- LOADING -->
+  <div class="card" id="loading" style="margin-top:24px">
+    <div class="loading-inner">
+      <div class="spinner"></div>
+      <div class="loading-text">Generando cotización...</div>
+      <div class="loading-steps" id="loadingSteps">
+        <div class="step" id="s1">Analizando el mensaje del cliente</div>
+        <div class="step" id="s2">Identificando productos y tallas</div>
+        <div class="step" id="s3">Calculando precios</div>
+        <div class="step" id="s4">Generando documento PDF</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTADO -->
+  <div id="resultado" style="margin-top:24px">
+    <div class="card">
+      <div class="resultado-header">
+        <div class="resultado-badge">✓ Cotización lista</div>
+        <span class="resultado-num" id="numCotizacion">COT-20260509-CLI</span>
+      </div>
+
+      <div class="preview-box" id="previewBox">
+        <!-- Aquí se renderiza el resumen de la cotización -->
+      </div>
+
+      <div class="acciones">
+        <button class="btn-pdf" id="btnPdf" onclick="descargarPdf()">
+          📥 Descargar PDF
+        </button>
+        <button class="btn-nueva" onclick="nuevaCotizacion()">
+          ↩ Nueva cotización
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer>
+  Both Company SV &nbsp;·&nbsp; bothcompanysv@gmail.com &nbsp;·&nbsp; WhatsApp 7585-9073 &nbsp;·&nbsp; NRC 2516429
+</footer>
+
+<script>
+  // ═══════════════════════════════════════════════════════
+  //  CONFIGURACIÓN
+  //  Cuando tengas la API lista, solo cambia API_URL y
+  //  descomenta la sección "LLAMADA REAL A LA API" abajo.
+  // ═══════════════════════════════════════════════════════
+  const CONFIG = {
+    API_URL: '/cotizar',      // en Railway el frontend y backend corren juntos
+    API_ACTIVA: true,
+  };
+
+  let pdfBlob = null; // Guardará el PDF recibido del servidor
+
+  function generarCotizacion() {
+    const cliente  = document.getElementById('cliente').value.trim();
+    const mensaje  = document.getElementById('mensaje').value.trim();
+    const errorBox = document.getElementById('errorBox');
+
+    // Validación básica
+    if (!cliente || !mensaje) {
+      errorBox.style.display = 'block';
+      errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    errorBox.style.display = 'none';
+
+    if (!CONFIG.API_ACTIVA) {
+      mostrarModoDemo(cliente, mensaje);
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  LLAMADA REAL A LA API  (se activa cuando API_ACTIVA = true)
+    // ═══════════════════════════════════════════════════
+    const payload = {
+      cliente:    cliente,
+      contacto:   document.getElementById('contacto').value.trim(),
+      mensaje:    mensaje,
+      formaPago:  document.getElementById('formaPago').value,
+      entrega:    document.getElementById('entrega').value,
+      conIva:     document.getElementById('conIva').checked,
+      conBanco:   document.getElementById('conBanco').checked,
+      validez15:  document.getElementById('validez15').checked,
+      conFirma:   document.getElementById('conFirma').checked,
+    };
+
+    mostrarLoading();
+
+    fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Error del servidor: ' + res.status);
+      return res.json();
+    })
+    .then(data => {
+      ocultarLoading();
+      mostrarResultado(data);
+    })
+    .catch(err => {
+      ocultarLoading();
+      mostrarError('No se pudo conectar con el servidor. Verifica que esté corriendo. (' + err.message + ')');
+    });
+  }
+
+  // ───────────────────────────────────────────────────────
+  //  MODO DEMO (mientras la API no está lista)
+  // ───────────────────────────────────────────────────────
+  function mostrarModoDemo(cliente, mensaje) {
+    mostrarLoading();
+    animarPasos();
+
+    setTimeout(() => {
+      ocultarLoading();
+
+      const fecha    = new Date();
+      const yyyymmdd = fecha.toISOString().slice(0,10).replace(/-/g,'');
+      const cod      = cliente.replace(/\s+/g,'').substring(0,3).toUpperCase();
+      const numCot   = `COT-${yyyymmdd}-${cod}`;
+
+      document.getElementById('numCotizacion').textContent = numCot;
+      document.getElementById('previewBox').innerHTML = `
+        <h3>Vista previa — ${cliente}</h3>
+        <p style="color:#64748b;font-size:13px;margin-bottom:14px">
+          <em>Modo demostración activo. Cuando conectes la API, aquí aparecerá la cotización real con precios calculados automáticamente.</em>
+        </p>
+        <table class="items-table">
+          <thead>
+            <tr><th>#</th><th>Descripción</th><th>Cant.</th><th>Precio Unit.</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>Producto detectado del mensaje<br><small style="color:#94a3b8">Tallas a definir</small></td><td>—</td><td>—</td><td>—</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:12px;font-size:13px;color:#64748b">
+          📌 Mensaje recibido (${mensaje.length} caracteres)<br>
+          🔧 Conecta la API para que Claude interprete el pedido y calcule precios automáticamente.
+        </p>
+      `;
+
+      document.getElementById('btnPdf').disabled = true;
+      document.getElementById('btnPdf').title    = 'Disponible cuando la API esté activa';
+      document.getElementById('btnPdf').style.opacity = '0.5';
+      document.getElementById('resultado').style.display = 'block';
+      document.getElementById('resultado').scrollIntoView({ behavior: 'smooth' });
+    }, 3200);
+  }
+
+  function mostrarResultado(data) {
+    // data esperado del servidor: { numero, previewHtml, pdfBase64 }
+    document.getElementById('numCotizacion').textContent = data.numero || '';
+    document.getElementById('previewBox').innerHTML      = data.previewHtml || '';
+
+    if (data.pdfBase64) {
+      const bytes = atob(data.pdfBase64);
+      const arr   = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      pdfBlob = new Blob([arr], { type: 'application/pdf' });
+    }
+
+    document.getElementById('resultado').style.display = 'block';
+    document.getElementById('resultado').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function descargarPdf() {
+    if (!pdfBlob) return;
+    const url  = URL.createObjectURL(pdfBlob);
+    const a    = document.createElement('a');
+    const num  = document.getElementById('numCotizacion').textContent;
+    a.href     = url;
+    a.download = num + '.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function nuevaCotizacion() {
+    document.getElementById('resultado').style.display = 'none';
+    document.getElementById('loading').style.display   = 'none';
+    document.getElementById('cliente').value  = '';
+    document.getElementById('contacto').value = '';
+    document.getElementById('mensaje').value  = '';
+    pdfBlob = null;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('cliente').focus();
+  }
+
+  // ── UI helpers ──
+  function mostrarLoading() {
+    document.getElementById('loading').style.display   = 'block';
+    document.getElementById('resultado').style.display = 'none';
+    document.getElementById('btnGenerar').disabled     = true;
+    document.getElementById('loading').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function ocultarLoading() {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('btnGenerar').disabled   = false;
+  }
+
+  function mostrarError(msg) {
+    const e = document.getElementById('errorBox');
+    e.textContent    = '⚠ ' + msg;
+    e.style.display  = 'block';
+    e.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function animarPasos() {
+    const pasos = ['s1','s2','s3','s4'];
+    let i = 0;
+    const iv = setInterval(() => {
+      if (i > 0) document.getElementById(pasos[i-1]).classList.replace('active','done');
+      if (i < pasos.length) {
+        document.getElementById(pasos[i]).classList.add('active');
+        i++;
+      } else {
+        clearInterval(iv);
+      }
+    }, 700);
+  }
+</script>
+
+</body>
+</html>
