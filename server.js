@@ -2,9 +2,13 @@ require('dotenv').config();
 
 const express   = require('express');
 const cors      = require('cors');
+const fs        = require('fs');
 const path      = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
 const puppeteer = require('puppeteer');
+
+const LOGO_B64 = 'data:image/jpeg;base64,' +
+  fs.readFileSync(path.join(__dirname, 'logo.jpeg')).toString('base64');
 
 const app      = express();
 const PORT     = process.env.PORT || 3000;
@@ -126,7 +130,7 @@ app.post('/cotizar', async (req, res) => {
     }
 
     // 3 — Generar HTML → PDF con Puppeteer
-    const html       = generarHtmlCotizacion(datos, conBanco, conFirma);
+    const html       = generarHtmlCotizacion(datos, conBanco, conFirma, LOGO_B64);
     const browser    = await puppeteer.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
@@ -155,7 +159,7 @@ app.post('/cotizar', async (req, res) => {
 // ───────────────────────────────────────────────────────────────────
 //  HTML DEL PDF
 // ───────────────────────────────────────────────────────────────────
-function generarHtmlCotizacion(d, conBanco, conFirma) {
+function generarHtmlCotizacion(d, conBanco, conFirma, logoB64) {
   const filas = d.items.map((item, i) => `
     <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'}">
       <td style="padding:10px 12px;text-align:center;color:#64748b">${i + 1}</td>
@@ -225,8 +229,7 @@ function generarHtmlCotizacion(d, conBanco, conFirma) {
   <table style="margin-bottom:20px">
     <tr>
       <td>
-        <div style="font-size:26px;font-weight:900;color:#1a2e4a;letter-spacing:-0.5px">BOTH COMPANY</div>
-        <div style="width:32px;height:5px;background:#f0b429;border-radius:3px;margin:4px 0 6px"></div>
+        <img src="${logoB64}" alt="Both Company" style="height:60px;width:auto;display:block;margin-bottom:6px" />
         <div style="font-size:11px;color:#64748b">Uniformes · Bordados · Estampados · El Salvador</div>
         <div style="font-size:11px;color:#64748b">bothcompanysv@gmail.com · WhatsApp 7585-9073</div>
         <div style="font-size:11px;color:#64748b">NRC: 2516429</div>
