@@ -194,6 +194,7 @@ app.post('/cotizar', async (req, res) => {
 
     res.json({
       numero:      datos.numero,
+      cliente:     datos.cliente,
       previewHtml: generarPreviewHtml(datos),
       pdfBase64:   pdfBuffer.toString('base64'),
     });
@@ -407,3 +408,4 @@ function generarPreviewHtml(d) {
 app.listen(PORT, () => {
   console.log(`✅ Both Company Cotizador corriendo en puerto ${PORT}`);
 });
+
