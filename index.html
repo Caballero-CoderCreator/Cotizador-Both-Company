@@ -741,9 +741,10 @@
   }
 
   function mostrarResultado(data) {
-    // data esperado del servidor: { numero, previewHtml, pdfBase64 }
+    // data esperado del servidor: { numero, cliente, previewHtml, pdfBase64 }
     document.getElementById('numCotizacion').textContent = data.numero || '';
     document.getElementById('previewBox').innerHTML      = data.previewHtml || '';
+    window._clienteActual = data.cliente || '';
 
     if (data.pdfBase64) {
       const bytes = atob(data.pdfBase64);
@@ -758,11 +759,14 @@
 
   function descargarPdf() {
     if (!pdfBlob) return;
-    const url  = URL.createObjectURL(pdfBlob);
-    const a    = document.createElement('a');
-    const num  = document.getElementById('numCotizacion').textContent;
+    const url     = URL.createObjectURL(pdfBlob);
+    const a       = document.createElement('a');
+    const num     = document.getElementById('numCotizacion').textContent;
+    const cliente = window._clienteActual
+      ? window._clienteActual.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '').trim().replace(/\s+/g, '-')
+      : 'Cliente';
     a.href     = url;
-    a.download = num + '.pdf';
+    a.download = `Cotizacion-${cliente}-${num}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -774,6 +778,7 @@
     document.getElementById('contacto').value = '';
     document.getElementById('mensaje').value  = '';
     pdfBlob = null;
+    window._clienteActual = null;
     window.scrollTo({ top: 0, behavior: 'smooth' });
     document.getElementById('cliente').focus();
   }
@@ -815,3 +820,4 @@
 
 </body>
 </html>
+
