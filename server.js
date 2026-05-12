@@ -36,6 +36,7 @@ function formatearPago(tipo, total) {
     }
     case 'contraentrega': return '100% contra entrega';
     case 'credito30':     return 'Crédito a 30 días';
+    case 'cheque':        return 'Cheque a nombre de Juan Ramon Caballero Machado';
     default:              return tipo;
   }
 }
@@ -232,10 +233,23 @@ function generarHtmlCotizacion(d, conBanco, conFirma, logoB64) {
     </tr>` : '';
 
   const bancoDatos = conBanco ? `
-    <p style="margin-top:8px;font-size:12px;color:#475569">
-      <strong style="color:#1e293b">Depósito:</strong>
-      Banco Cuscatlán · Cta. Ahorro #001-401-00-053402-6 · A nombre de: Juan Ramon Caballero
-    </p>` : '';
+    <div style="margin-top:10px;font-size:12px;color:#475569">
+      <strong style="color:#1e293b;display:block;margin-bottom:4px">Datos bancarios — Juan Ramon Caballero Machado:</strong>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px">
+          <div style="font-weight:700;color:#1e293b;margin-bottom:2px">BAC Credomatic</div>
+          <div>Cta. Ahorro #122795339</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px">
+          <div style="font-weight:700;color:#1e293b;margin-bottom:2px">Banco Cuscatlán</div>
+          <div>Cta. Ahorro #001-401-00-053402-6</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px">
+          <div style="font-weight:700;color:#1e293b;margin-bottom:2px">Banco Hipotecario</div>
+          <div>Cta. Ahorro #01540008937</div>
+        </div>
+      </div>
+    </div>` : '';
 
   const firmaSection = conFirma ? `
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e2e8f0">
