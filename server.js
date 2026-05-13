@@ -200,6 +200,9 @@ app.post('/cotizar', async (req, res) => {
       pdfBase64:   pdfBuffer.toString('base64'),
     });
 
+    // Sync to CRM in background — does not affect mobile/standalone use
+    guardarEnCRM(datos).catch(err => console.error('[CRM sync]', err.message));
+
   } catch (err) {
     console.error('Error al generar cotización:', err.message);
     res.status(500).json({ error: 'Error al generar la cotización: ' + err.message });
@@ -416,6 +419,60 @@ function generarPreviewHtml(d) {
     <div style="margin-top:6px;font-size:12px;color:#64748b">
       Pago: ${d.formaPago} &nbsp;·&nbsp; Entrega: ${d.entrega}
     </div>`;
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  SYNC AL CRM (Supabase) — fire-and-forget, no bloquea la respuesta
+// ───────────────────────────────────────────────────────────────────
+async function guardarEnCRM(datos) {
+  const SUPA_URL = process.env.SUPABASE_URL;
+  const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+  if (!SUPA_URL || !SUPA_KEY) return;
+
+  const h = {
+    apikey: SUPA_KEY,
+    Authorization: `Bearer ${SUPA_KEY}`,
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+
+  // 1 — Buscar cliente existente por nombre exacto
+  const searchRes = await fetch(
+    `${SUPA_URL}/rest/v1/clientes?nombre=eq.${encodeURIComponent(datos.cliente)}&limit=1&select=id`,
+    { headers: h }
+  );
+  const encontrados = await searchRes.json();
+
+  let clienteId;
+  if (Array.isArray(encontrados) && encontrados.length > 0) {
+    clienteId = encontrados[0].id;
+  } else {
+    // 2 — Insertar nuevo cliente
+    const insertRes = await fetch(`${SUPA_URL}/rest/v1/clientes`, {
+      method: 'POST',
+      headers: { ...h, Prefer: 'return=representation' },
+      body: JSON.stringify({ nombre: datos.cliente }),
+    });
+    const [nuevoCliente] = await insertRes.json();
+    clienteId = nuevoCliente?.id;
+  }
+
+  if (!clienteId) { console.error('[CRM sync] No se pudo obtener cliente_id'); return; }
+
+  // 3 — Insertar cotización con estado borrador
+  await fetch(`${SUPA_URL}/rest/v1/cotizaciones`, {
+    method: 'POST',
+    headers: { ...h, Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      cliente_id: clienteId,
+      numero:     datos.numero,
+      estado:     'borrador',
+      total:      datos.total,
+      notas:      `Cotización web · Entrega: ${datos.entrega}`,
+    }),
+  });
+
+  console.log(`[CRM sync] ✅ ${datos.numero} guardado para cliente "${datos.cliente}"`);
 }
 
 // ───────────────────────────────────────────────────────────────────
