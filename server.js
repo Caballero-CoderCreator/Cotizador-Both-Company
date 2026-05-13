@@ -11,6 +11,7 @@ const LOGO_B64 = 'data:image/jpeg;base64,' +
   fs.readFileSync(path.join(__dirname, 'logo.jpeg')).toString('base64');
 
 // ── Contador secuencial de cotizaciones ──
+// Se inicializa desde Supabase al arrancar para sobrevivir reinicios en Railway
 const COUNTER_FILE = path.join(__dirname, 'counter.json');
 let quoteCounter = 0;
 try {
@@ -21,6 +22,31 @@ function nextQuoteNumber() {
   quoteCounter++;
   try { fs.writeFileSync(COUNTER_FILE, JSON.stringify({ n: quoteCounter }), 'utf8'); } catch {}
   return `COT-${String(quoteCounter).padStart(3, '0')}`;
+}
+
+async function inicializarContador() {
+  const SUPA_URL = process.env.SUPABASE_URL;
+  const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+  if (!SUPA_URL || !SUPA_KEY) return;
+  try {
+    const res  = await fetch(
+      `${SUPA_URL}/rest/v1/cotizaciones?select=numero&order=created_at.desc&limit=1`,
+      { headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` } }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0 && data[0].numero) {
+      const match = data[0].numero.match(/(\d+)$/);
+      if (match) {
+        const n = parseInt(match[1], 10);
+        if (n > quoteCounter) {
+          quoteCounter = n;
+          console.log(`[Counter] Retomando desde ${quoteCounter} (último: ${data[0].numero})`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Counter] Error al sincronizar contador:', err.message);
+  }
 }
 
 function formatearPago(tipo, total) {
@@ -201,7 +227,7 @@ app.post('/cotizar', async (req, res) => {
     });
 
     // Sync to CRM in background — does not affect mobile/standalone use
-    guardarEnCRM(datos).catch(err => console.error('[CRM sync]', err.message));
+    guardarEnCRM(datos, pdfBuffer).catch(err => console.error('[CRM sync]', err.message));
 
   } catch (err) {
     console.error('Error al generar cotización:', err.message);
@@ -424,7 +450,7 @@ function generarPreviewHtml(d) {
 // ───────────────────────────────────────────────────────────────────
 //  SYNC AL CRM (Supabase) — fire-and-forget, no bloquea la respuesta
 // ───────────────────────────────────────────────────────────────────
-async function guardarEnCRM(datos) {
+async function guardarEnCRM(datos, pdfBuffer) {
   const SUPA_URL = process.env.SUPABASE_URL;
   const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
   if (!SUPA_URL || !SUPA_KEY) return;
@@ -459,7 +485,33 @@ async function guardarEnCRM(datos) {
 
   if (!clienteId) { console.error('[CRM sync] No se pudo obtener cliente_id'); return; }
 
-  // 3 — Insertar cotización con estado borrador
+  // 3 — Subir PDF a Supabase Storage
+  let pdfUrl = null;
+  if (pdfBuffer) {
+    const filename = `${datos.numero}.pdf`;
+    const storageRes = await fetch(
+      `${SUPA_URL}/storage/v1/object/cotizaciones-pdf/${filename}`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: SUPA_KEY,
+          Authorization: `Bearer ${SUPA_KEY}`,
+          'Content-Type': 'application/pdf',
+          'x-upsert': 'true',
+        },
+        body: pdfBuffer,
+      }
+    );
+    if (storageRes.ok) {
+      pdfUrl = `${SUPA_URL}/storage/v1/object/public/cotizaciones-pdf/${filename}`;
+      console.log(`[CRM sync] 📎 PDF subido: ${filename}`);
+    } else {
+      const errTxt = await storageRes.text();
+      console.error('[CRM sync] PDF upload error:', errTxt);
+    }
+  }
+
+  // 4 — Insertar cotización con estado borrador y pdf_url
   await fetch(`${SUPA_URL}/rest/v1/cotizaciones`, {
     method: 'POST',
     headers: { ...h, Prefer: 'return=minimal' },
@@ -469,6 +521,7 @@ async function guardarEnCRM(datos) {
       estado:     'borrador',
       total:      datos.total,
       notas:      `Cotización web · Entrega: ${datos.entrega}`,
+      pdf_url:    pdfUrl,
     }),
   });
 
@@ -476,7 +529,10 @@ async function guardarEnCRM(datos) {
 }
 
 // ───────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`✅ Both Company Cotizador corriendo en puerto ${PORT}`);
-});
+(async () => {
+  await inicializarContador();
+  app.listen(PORT, () => {
+    console.log(`✅ Both Company Cotizador corriendo en puerto ${PORT} (contador: ${quoteCounter})`);
+  });
+})();
 
