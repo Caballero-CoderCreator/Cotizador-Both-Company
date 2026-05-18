@@ -227,11 +227,138 @@ app.post('/cotizar', async (req, res) => {
     });
 
     // Sync to CRM in background — does not affect mobile/standalone use
-    guardarEnCRM(datos, pdfBuffer).catch(err => console.error('[CRM sync]', err.message));
+    guardarEnCRM(datos, pdfBuffer, { conIva, conBanco, conFirma, formaPagoKey: formaPago }).catch(err => console.error('[CRM sync]', err.message));
 
   } catch (err) {
     console.error('Error al generar cotización:', err.message);
     res.status(500).json({ error: 'Error al generar la cotización: ' + err.message });
+  }
+});
+
+// ───────────────────────────────────────────────────────────────────
+//  RUTA EDICIÓN — POST /actualizar (no incrementa contador)
+// ───────────────────────────────────────────────────────────────────
+app.post('/actualizar', async (req, res) => {
+  const { numero, cliente, contacto, items, formaPago, entrega, validez, conIva, conBanco, conFirma } = req.body;
+
+  if (!numero || !cliente || !Array.isArray(items) || !formaPago) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios.' });
+  }
+
+  try {
+    const itemsCalc = items.map(item => ({
+      descripcion: item.descripcion || '',
+      tallas:      item.tallas || '',
+      cantidad:    Number(item.cantidad) || 0,
+      precioUnit:  Number(item.precioUnit) || 0,
+      total:       (Number(item.cantidad) || 0) * (Number(item.precioUnit) || 0),
+    }));
+
+    const subtotal     = itemsCalc.reduce((s, i) => s + i.total, 0);
+    const ivaVal       = conIva ? subtotal * 0.13 : 0;
+    const total        = subtotal + ivaVal;
+    const formaPagoTxt = formatearPago(formaPago, total);
+
+    const datos = {
+      numero,
+      cliente,
+      contacto: contacto || '',
+      items:    itemsCalc,
+      subtotal,
+      iva:      ivaVal,
+      total,
+      formaPago: formaPagoTxt,
+      entrega,
+      validez:  validez || '15 días',
+      fecha:    fechaHoy(),
+    };
+
+    // Generar PDF con Puppeteer
+    const html    = generarHtmlCotizacion(datos, conBanco, conFirma, LOGO_B64);
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      margin: { top: '15mm', right: '20mm', bottom: '15mm', left: '20mm' },
+      printBackground: true,
+    });
+    await browser.close();
+
+    const SUPA_URL = process.env.SUPABASE_URL;
+    const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+    let pdfUrl = null;
+
+    if (SUPA_URL && SUPA_KEY) {
+      // Subir PDF al mismo path (x-upsert reemplaza el archivo existente)
+      const filename   = `${numero}.pdf`;
+      const storageRes = await fetch(
+        `${SUPA_URL}/storage/v1/object/cotizaciones-pdf/${filename}`,
+        {
+          method: 'POST',
+          headers: {
+            apikey: SUPA_KEY,
+            Authorization: `Bearer ${SUPA_KEY}`,
+            'Content-Type': 'application/pdf',
+            'x-upsert': 'true',
+          },
+          body: pdfBuffer,
+        }
+      );
+      if (storageRes.ok) {
+        pdfUrl = `${SUPA_URL}/storage/v1/object/public/cotizaciones-pdf/${filename}`;
+      } else {
+        console.error('[/actualizar] PDF upload error:', await storageRes.text());
+      }
+
+      // Actualizar registro en Supabase
+      const patch = {
+        total,
+        datos: {
+          cliente,
+          contacto:    contacto || null,
+          items:       itemsCalc,
+          subtotal,
+          iva:         ivaVal,
+          formaPago:   formaPagoTxt,
+          formaPagoKey: formaPago,
+          entrega,
+          validez:     validez || '15 días',
+          conIva:      !!conIva,
+          conBanco:    !!conBanco,
+          conFirma:    !!conFirma,
+        },
+      };
+      if (pdfUrl) patch.pdf_url = pdfUrl;
+
+      const updateRes = await fetch(
+        `${SUPA_URL}/rest/v1/cotizaciones?numero=eq.${encodeURIComponent(numero)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            apikey: SUPA_KEY,
+            Authorization: `Bearer ${SUPA_KEY}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Prefer: 'return=minimal',
+          },
+          body: JSON.stringify(patch),
+        }
+      );
+      if (!updateRes.ok) {
+        console.error('[/actualizar] DB update error:', await updateRes.text());
+      }
+    }
+
+    console.log(`[/actualizar] ✅ ${numero} actualizado`);
+    res.json({ numero, pdfBase64: pdfBuffer.toString('base64'), pdfUrl });
+
+  } catch (err) {
+    console.error('Error al actualizar cotización:', err.message);
+    res.status(500).json({ error: 'Error al actualizar: ' + err.message });
   }
 });
 
@@ -450,7 +577,7 @@ function generarPreviewHtml(d) {
 // ───────────────────────────────────────────────────────────────────
 //  SYNC AL CRM (Supabase) — fire-and-forget, no bloquea la respuesta
 // ───────────────────────────────────────────────────────────────────
-async function guardarEnCRM(datos, pdfBuffer) {
+async function guardarEnCRM(datos, pdfBuffer, opciones = {}) {
   const SUPA_URL = process.env.SUPABASE_URL;
   const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
   if (!SUPA_URL || !SUPA_KEY) return;
@@ -511,7 +638,7 @@ async function guardarEnCRM(datos, pdfBuffer) {
     }
   }
 
-  // 4 — Insertar cotización con estado borrador y pdf_url
+  // 4 — Insertar cotización con estado borrador, pdf_url y snapshot de datos para edición
   await fetch(`${SUPA_URL}/rest/v1/cotizaciones`, {
     method: 'POST',
     headers: { ...h, Prefer: 'return=minimal' },
@@ -522,6 +649,20 @@ async function guardarEnCRM(datos, pdfBuffer) {
       total:      datos.total,
       notas:      `Cotización web · Entrega: ${datos.entrega}`,
       pdf_url:    pdfUrl,
+      datos: {
+        cliente:     datos.cliente,
+        contacto:    datos.contacto || null,
+        items:       datos.items,
+        subtotal:    datos.subtotal,
+        iva:         datos.iva,
+        formaPago:   datos.formaPago,
+        formaPagoKey: opciones.formaPagoKey || '',
+        entrega:     datos.entrega,
+        validez:     datos.validez,
+        conIva:      opciones.conIva || false,
+        conBanco:    opciones.conBanco || false,
+        conFirma:    opciones.conFirma || false,
+      },
     }),
   });
 
