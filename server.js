@@ -60,6 +60,7 @@ function formatearPago(tipo, total) {
       const a = total * 0.4, b = total * 0.3;
       return `40% anticipo (${fmt(a)}) — 30% en proceso (${fmt(b)}) — 30% contra entrega (${fmt(total - a - b)})`;
     }
+    case 'contado':       return 'Contado';
     case 'contraentrega': return '100% contra entrega';
     case 'credito30':     return 'Crédito a 30 días';
     case 'cheque':        return 'Cheque a nombre de Juan Ramon Caballero Machado';
