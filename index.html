@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cotizador — Both Company</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -469,6 +472,75 @@
       .card { padding: 20px; }
       header { padding: 0 20px; }
     }
+
+    /* ════════════════════════════════════════════════════════
+       DARK LUXURY — override visual (datos/lógica intactos)
+       Negro de marca + dorado + Fraunces. La web del cotizador
+       va en oscuro; el PDF al cliente sigue en blanco.
+       ════════════════════════════════════════════════════════ */
+    :root {
+      --dl-bg:#0B0B0D; --dl-bg2:#101012; --dl-surface:#151517; --dl-surface2:#1B1B1F;
+      --dl-line:rgba(255,255,255,.08); --dl-line2:rgba(255,255,255,.14);
+      --dl-gold:#C4923A; --dl-gold-br:#E6BE73; --dl-gold-soft:rgba(196,146,58,.14);
+      --dl-text:#F6F4EF; --dl-soft:#C7C3BA; --dl-muted:#87837A;
+    }
+    body { font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--dl-bg); color:var(--dl-text); }
+
+    header { background:var(--dl-bg2); border-bottom:1px solid var(--dl-line); box-shadow:none; }
+    .logo-icon { background:linear-gradient(135deg,var(--dl-gold-br),var(--dl-gold)); color:#1a1408; }
+    .logo-text { color:var(--dl-text); }
+    .logo-sub { color:var(--dl-gold-br); }
+    .header-badge { background:linear-gradient(135deg,var(--dl-gold-br),var(--dl-gold)); color:#1a1408; }
+
+    .page-title { font-family:'Fraunces',serif; font-weight:500; color:var(--dl-text); letter-spacing:-.3px; }
+    .page-sub { color:var(--dl-muted); }
+
+    .card { background:var(--dl-surface); border:1px solid var(--dl-line); border-radius:16px; box-shadow:none; }
+    .card-title { color:var(--dl-muted); }
+    label { color:var(--dl-soft); }
+    .hint { color:var(--dl-muted); }
+
+    input[type="text"], textarea, select {
+      background:var(--dl-bg2); border:1px solid var(--dl-line2); color:var(--dl-text);
+    }
+    input[type="text"]::placeholder, textarea::placeholder { color:var(--dl-muted); }
+    input[type="text"]:focus, textarea:focus, select:focus {
+      border-color:var(--dl-gold); box-shadow:0 0 0 3px rgba(196,146,58,.15);
+    }
+    select option { background:var(--dl-surface); color:var(--dl-text); }
+
+    .toggle-chip { background:var(--dl-surface); border:1.5px solid var(--dl-line2); color:var(--dl-soft); }
+    .toggle-chip .dot { background:rgba(255,255,255,.2); }
+    .toggle-chip:has(input:checked) { border-color:var(--dl-gold); background:var(--dl-gold-soft); color:var(--dl-gold-br); }
+    .toggle-chip:has(input:checked) .dot { background:var(--dl-gold); }
+
+    .btn-generar { background:linear-gradient(135deg,var(--dl-gold-br),var(--dl-gold)); color:#1a1408; box-shadow:0 5px 16px rgba(196,146,58,.28); }
+    .btn-generar:hover { background:linear-gradient(135deg,var(--dl-gold-br),var(--dl-gold)); box-shadow:0 7px 22px rgba(196,146,58,.45); }
+    .btn-generar:disabled { background:rgba(255,255,255,.06); color:var(--dl-muted); box-shadow:none; }
+
+    .resultado-badge { background:rgba(74,222,128,.12); color:#4ADE80; }
+    .resultado-num { color:var(--dl-muted); }
+
+    .preview-box { background:var(--dl-bg2); border:1px solid var(--dl-line2); color:var(--dl-soft); }
+    .preview-box h3 { font-family:'Fraunces',serif; font-weight:500; color:var(--dl-text); }
+    .items-table th { background:var(--dl-surface2); color:var(--dl-muted); }
+    .items-table td { border-bottom:1px solid var(--dl-line); color:var(--dl-soft); }
+    .items-table tr:nth-child(even) td { background:rgba(255,255,255,.025); }
+    .total-row td { background:linear-gradient(135deg,var(--dl-gold-br),var(--dl-gold)) !important; color:#1a1408; }
+
+    .acciones .btn-pdf { background:linear-gradient(135deg,var(--dl-gold-br),var(--dl-gold)); color:#1a1408; }
+    .acciones .btn-pdf:hover { background:linear-gradient(135deg,var(--dl-gold-br),var(--dl-gold)); }
+    .btn-nueva { background:var(--dl-surface); border:2px solid var(--dl-gold); color:var(--dl-gold-br); }
+    .btn-nueva:hover { background:var(--dl-surface2); }
+
+    .aviso-api { background:var(--dl-gold-soft); border:1.5px solid var(--dl-gold); color:var(--dl-gold-br); }
+    .error-box { background:rgba(248,113,113,.12); border:1.5px solid rgba(248,113,113,.3); color:#F87171; }
+    .spinner { border-color:var(--dl-line2); border-top-color:var(--dl-gold); }
+    .loading-text { color:var(--dl-soft); }
+    .loading-steps, .step.done { color:var(--dl-muted); }
+    .step.active { color:var(--dl-gold-br); }
+
+    footer { color:var(--dl-muted); border-top:1px solid var(--dl-line); }
   </style>
 </head>
 <body>
@@ -585,7 +657,7 @@
 
   <!-- BOTÓN GENERAR -->
   <button class="btn-generar" id="btnGenerar" onclick="generarCotizacion()">
-    <span class="btn-icon">📄</span>
+    <span class="btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></span>
     Generar Cotización
   </button>
 
@@ -617,10 +689,12 @@
 
       <div class="acciones">
         <button class="btn-pdf" id="btnPdf" onclick="descargarPdf()">
-          📥 Descargar PDF
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+          Descargar PDF
         </button>
         <button class="btn-nueva" onclick="nuevaCotizacion()">
-          ↩ Nueva cotización
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Nueva cotización
         </button>
       </div>
     </div>

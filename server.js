@@ -213,6 +213,7 @@ app.post('/cotizar', async (req, res) => {
     });
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.evaluateHandle('document.fonts.ready');
     const pdfBuffer = await page.pdf({
       format: 'A4',
       margin: { top: '15mm', right: '20mm', bottom: '15mm', left: '20mm' },
@@ -282,6 +283,7 @@ app.post('/actualizar', async (req, res) => {
     });
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.evaluateHandle('document.fonts.ready');
     const pdfBuffer = await page.pdf({
       format: 'A4',
       margin: { top: '15mm', right: '20mm', bottom: '15mm', left: '20mm' },
@@ -368,63 +370,60 @@ app.post('/actualizar', async (req, res) => {
 // ───────────────────────────────────────────────────────────────────
 function generarHtmlCotizacion(d, conBanco, conFirma, logoB64) {
   const filas = d.items.map((item, i) => `
-    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'}">
-      <td style="padding:10px 12px;text-align:center;color:#64748b">${i + 1}</td>
-      <td style="padding:10px 12px">
-        <strong>${item.descripcion}</strong>
-        ${item.tallas ? `<br><small style="color:#64748b;font-size:11px">${item.tallas}</small>` : ''}
+    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#FBFAF7'}">
+      <td style="padding:11px 13px;text-align:center;color:#8A857B;font-size:12px;border-bottom:1px solid #ECE8E0">${i + 1}</td>
+      <td style="padding:11px 13px;border-bottom:1px solid #ECE8E0">
+        <strong style="color:#14130F;font-weight:600">${item.descripcion}</strong>
+        ${item.tallas ? `<br><small style="color:#8A857B;font-size:10.5px">${item.tallas}</small>` : ''}
       </td>
-      <td style="padding:10px 12px;text-align:center">${item.cantidad}</td>
-      <td style="padding:10px 12px;text-align:right">$${Number(item.precioUnit).toFixed(2)}</td>
-      <td style="padding:10px 12px;text-align:right"><strong>$${Number(item.total).toFixed(2)}</strong></td>
+      <td style="padding:11px 13px;text-align:center;border-bottom:1px solid #ECE8E0">${item.cantidad}</td>
+      <td style="padding:11px 13px;text-align:right;border-bottom:1px solid #ECE8E0">$${Number(item.precioUnit).toFixed(2)}</td>
+      <td style="padding:11px 13px;text-align:right;color:#14130F;border-bottom:1px solid #ECE8E0"><strong>$${Number(item.total).toFixed(2)}</strong></td>
     </tr>`).join('');
 
   const filaSubtotal = d.iva > 0 ? `
     <tr>
-      <td colspan="4" style="padding:7px 12px;text-align:right;color:#64748b;font-size:13px">Subtotal</td>
-      <td style="padding:7px 12px;text-align:right;font-size:13px">$${Number(d.subtotal).toFixed(2)}</td>
+      <td colspan="4" style="padding:6px 13px;text-align:right;color:#8A857B;font-size:12px">Subtotal</td>
+      <td style="padding:6px 13px;text-align:right;font-size:12px;color:#423E37;font-weight:600">$${Number(d.subtotal).toFixed(2)}</td>
     </tr>
     <tr>
-      <td colspan="4" style="padding:7px 12px;text-align:right;color:#64748b;font-size:13px">IVA (13%)</td>
-      <td style="padding:7px 12px;text-align:right;font-size:13px">$${Number(d.iva).toFixed(2)}</td>
+      <td colspan="4" style="padding:6px 13px;text-align:right;color:#8A857B;font-size:12px">IVA (13%)</td>
+      <td style="padding:6px 13px;text-align:right;font-size:12px;color:#423E37;font-weight:600">$${Number(d.iva).toFixed(2)}</td>
     </tr>` : '';
 
+  const banco = (nombre, cuenta) => `
+        <div style="background:#ffffff;border:1px solid #ECE8E0;border-radius:8px;padding:9px 11px">
+          <div style="font-weight:700;color:#14130F;margin-bottom:2px;font-size:11.5px">${nombre}</div>
+          <div style="font-size:11px;color:#423E37">${cuenta}</div>
+        </div>`;
+
   const bancoDatos = conBanco ? `
-    <div style="margin-top:10px;font-size:12px;color:#475569">
-      <strong style="color:#1e293b;display:block;margin-bottom:4px">Datos bancarios — Juan Ramon Caballero Machado:</strong>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px">
-          <div style="font-weight:700;color:#1e293b;margin-bottom:2px">BAC Credomatic</div>
-          <div>Cta. Ahorro #122795339</div>
-        </div>
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px">
-          <div style="font-weight:700;color:#1e293b;margin-bottom:2px">Banco Cuscatlán</div>
-          <div>Cta. Ahorro #001-401-00-053402-6</div>
-        </div>
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px">
-          <div style="font-weight:700;color:#1e293b;margin-bottom:2px">Banco Hipotecario</div>
-          <div>Cta. Ahorro #01540008937</div>
-        </div>
+    <div style="margin-top:11px">
+      <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:#A67C2E;font-weight:700;margin-bottom:6px">Datos bancarios — Juan Ramón Caballero Machado</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">
+        ${banco('BAC Credomatic', 'Cta. Ahorro #122795339')}
+        ${banco('Banco Cuscatlán', 'Cta. Ahorro #001-401-00-053402-6')}
+        ${banco('Banco Hipotecario', 'Cta. Ahorro #01540008937')}
       </div>
     </div>` : '';
 
   const firmaSection = conFirma ? `
-    <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e2e8f0">
-      <p style="font-size:12px;color:#64748b;margin-bottom:28px">
+    <div style="margin-top:30px;padding-top:18px;border-top:1px solid #ECE8E0">
+      <p style="font-size:11px;color:#8A857B;margin-bottom:30px;line-height:1.6">
         Al firmar esta cotización, el cliente acepta los productos, cantidades, precios y condiciones descritos arriba.
       </p>
       <table style="width:100%">
         <tr>
           <td style="width:45%;padding-right:20px">
-            <div style="border-top:1.5px solid #1a2e4a;padding-top:6px">
-              <div style="font-size:12px;color:#64748b">Firma y nombre del cliente</div>
-              <div style="font-size:12px;color:#64748b;margin-top:2px">Fecha: _______________</div>
+            <div style="border-top:1.5px solid #14130F;padding-top:7px">
+              <div style="font-size:11px;color:#423E37">Firma y nombre del cliente</div>
+              <div style="font-size:11px;color:#8A857B;margin-top:3px">Fecha: _______________</div>
             </div>
           </td>
           <td style="width:10%"></td>
           <td style="width:45%;padding-left:20px">
-            <div style="border-top:1.5px solid #1a2e4a;padding-top:6px">
-              <div style="font-size:12px;color:#64748b">Sello / DUI</div>
+            <div style="border-top:1.5px solid #14130F;padding-top:7px">
+              <div style="font-size:11px;color:#423E37">Sello / DUI</div>
             </div>
           </td>
         </tr>
@@ -435,53 +434,58 @@ function generarHtmlCotizacion(d, conBanco, conFirma, logoB64) {
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  @page { size: A4; margin: 15mm 20mm; }
+  @page { size: A4; margin: 15mm 18mm; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 13px; line-height: 1.5; }
+  body { font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif; color: #423E37; font-size: 13px; line-height: 1.5; }
+  .serif { font-family: 'Fraunces', Georgia, serif; }
   table { width: 100%; border-collapse: collapse; }
 </style>
 </head>
 <body>
 
   <!-- ENCABEZADO -->
-  <table style="margin-bottom:20px">
+  <table style="margin-bottom:18px">
     <tr>
-      <td>
-        <img src="${logoB64}" alt="Both Company" style="height:60px;width:auto;display:block;margin-bottom:6px" />
-        <div style="font-size:11px;color:#64748b">Uniformes · Bordados · Estampados · El Salvador</div>
-        <div style="font-size:11px;color:#64748b">bothcompanysv@gmail.com · WhatsApp 7585-9073</div>
-        <div style="font-size:11px;color:#64748b">NRC: 2516429</div>
+      <td style="vertical-align:top">
+        <img src="${logoB64}" alt="Both Company" style="height:58px;width:auto;display:block;margin-bottom:7px" />
+        <div style="font-size:10.5px;color:#8A857B;line-height:1.6">
+          Uniformes · Bordados · Estampados — El Salvador<br>
+          bothcompanysv@gmail.com · WhatsApp 7585-9073 · NRC: 2516429
+        </div>
       </td>
       <td style="text-align:right;vertical-align:top">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8">Cotización</div>
-        <div style="font-size:20px;font-weight:900;color:#1a2e4a">${d.numero}</div>
-        <div style="font-size:11px;color:#64748b">Fecha: ${d.fecha}</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:3px;color:#8A857B;font-weight:600">Cotización</div>
+        <div class="serif" style="font-size:30px;font-weight:600;color:#14130F;line-height:1.05;margin-top:2px">${d.numero}</div>
+        <div style="font-size:11px;color:#8A857B;margin-top:4px">Fecha: ${d.fecha}</div>
       </td>
     </tr>
   </table>
 
-  <div style="height:3px;background:#1a2e4a;margin-bottom:2px"></div>
-  <div style="height:3px;background:#f0b429;margin-bottom:18px"></div>
+  <div style="height:2.5px;background:#14130F;border-radius:2px"></div>
+  <div style="height:2.5px;background:#C4923A;border-radius:2px;margin-top:2.5px;margin-bottom:20px;width:42%"></div>
 
   <!-- CLIENTE -->
-  <table style="margin-bottom:16px;background:#f5f7fa;border-radius:6px">
+  <table style="margin-bottom:18px;background:#FBFAF7;border:1px solid #ECE8E0;border-radius:10px;overflow:hidden">
     <tr>
-      <td style="padding:12px 16px;width:50%;border-right:1px solid #e2e8f0">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:3px">Cliente</div>
-        <div style="font-size:15px;font-weight:700">${d.cliente}</div>
-        ${d.contacto ? `<div style="font-size:12px;color:#64748b">Atención: ${d.contacto}</div>` : ''}
+      <td style="padding:13px 18px;width:50%;border-right:1px solid #ECE8E0">
+        <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:#A67C2E;font-weight:700;margin-bottom:5px">Cliente</div>
+        <div class="serif" style="font-size:17px;font-weight:600;color:#14130F">${d.cliente}</div>
+        ${d.contacto ? `<div style="font-size:12px;color:#423E37;margin-top:3px">Atención: ${d.contacto}</div>` : ''}
       </td>
-      <td style="padding:12px 16px">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:3px">Condiciones</div>
-        <div style="font-size:12px">Entrega: <strong>${d.entrega}</strong></div>
-        <div style="font-size:12px">Validez: <strong>${d.validez}</strong></div>
+      <td style="padding:13px 18px">
+        <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:#A67C2E;font-weight:700;margin-bottom:5px">Condiciones</div>
+        <div style="font-size:12px;color:#423E37">Entrega: <strong style="color:#14130F">${d.entrega}</strong></div>
+        <div style="font-size:12px;color:#423E37">Validez: <strong style="color:#14130F">${d.validez}</strong></div>
       </td>
     </tr>
   </table>
 
-  <p style="font-size:12px;color:#475569;margin-bottom:14px;line-height:1.6">
+  <p style="font-size:12px;color:#423E37;margin-bottom:14px;line-height:1.65">
     Reciba un cordial saludo y nuestros mejores deseos de éxito en sus labores diarias.
     Con gusto sometemos a su amable consideración la siguiente cotización:
   </p>
@@ -489,38 +493,38 @@ function generarHtmlCotizacion(d, conBanco, conFirma, logoB64) {
   <!-- TABLA -->
   <table style="margin-bottom:4px">
     <thead>
-      <tr style="background:#1a2e4a;color:#fff">
-        <th style="padding:9px 12px;text-align:center;width:5%">#</th>
-        <th style="padding:9px 12px;text-align:left">Descripción</th>
-        <th style="padding:9px 12px;text-align:center;width:9%">Cant.</th>
-        <th style="padding:9px 12px;text-align:right;width:12%">P. Unit.</th>
-        <th style="padding:9px 12px;text-align:right;width:13%">Total</th>
+      <tr style="background:#14130F;color:#fff">
+        <th style="padding:11px 13px;text-align:center;width:5%;font-size:10px;text-transform:uppercase;letter-spacing:.8px;font-weight:600">#</th>
+        <th style="padding:11px 13px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.8px;font-weight:600">Descripción</th>
+        <th style="padding:11px 13px;text-align:center;width:9%;font-size:10px;text-transform:uppercase;letter-spacing:.8px;font-weight:600">Cant.</th>
+        <th style="padding:11px 13px;text-align:right;width:12%;font-size:10px;text-transform:uppercase;letter-spacing:.8px;font-weight:600">P. Unit.</th>
+        <th style="padding:11px 13px;text-align:right;width:14%;font-size:10px;text-transform:uppercase;letter-spacing:.8px;font-weight:600">Total</th>
       </tr>
     </thead>
     <tbody>
       ${filas}
       ${filaSubtotal}
-      <tr style="background:#1a2e4a;color:#fff">
-        <td colspan="4" style="padding:10px 12px;text-align:right;font-weight:700;font-size:14px">TOTAL</td>
-        <td style="padding:10px 12px;text-align:right;font-weight:900;font-size:15px">$${Number(d.total).toFixed(2)}</td>
+      <tr style="background:#14130F;color:#fff">
+        <td colspan="4" style="padding:13px;text-align:right;font-weight:600;font-size:13px;letter-spacing:.5px">TOTAL</td>
+        <td class="serif" style="padding:13px;text-align:right;font-weight:600;font-size:20px;color:#E6BE73">$${Number(d.total).toFixed(2)}</td>
       </tr>
     </tbody>
   </table>
 
   <!-- PAGO -->
-  <div style="margin-top:16px;padding:12px 16px;background:#f5f7fa;border-radius:6px;font-size:12px">
-    <strong>Forma de pago:</strong> ${d.formaPago}
+  <div style="margin-top:18px;padding:14px 18px;background:#FBFAF7;border:1px solid #ECE8E0;border-radius:10px;font-size:12px;color:#423E37">
+    <strong style="color:#14130F">Forma de pago:</strong> ${d.formaPago}
     ${bancoDatos}
   </div>
 
   <!-- CIERRE -->
-  <p style="margin-top:18px;font-size:12px;color:#475569;line-height:1.6">
+  <p style="margin-top:18px;font-size:12px;color:#423E37;line-height:1.65">
     Esperando que nuestra propuesta haya sido satisfactoria, quedo pendiente de sus instrucciones.
   </p>
 
-  <div style="margin-top:16px;padding-top:12px;border-top:2px solid #f0b429">
-    <div style="font-weight:700;color:#1a2e4a;font-size:13px">Juan Ramon Caballero</div>
-    <div style="font-size:11px;color:#64748b">Both Company · WhatsApp 7585-9073 · bothcompanysv@gmail.com</div>
+  <div style="margin-top:16px;padding-top:13px;border-top:2px solid #C4923A">
+    <div class="serif" style="font-weight:600;color:#14130F;font-size:14px">Juan Ramón Caballero</div>
+    <div style="font-size:10.5px;color:#8A857B;margin-top:2px">Both Company · WhatsApp 7585-9073 · bothcompanysv@gmail.com</div>
   </div>
 
   ${firmaSection}
@@ -534,44 +538,49 @@ function generarHtmlCotizacion(d, conBanco, conFirma, logoB64) {
 // ───────────────────────────────────────────────────────────────────
 function generarPreviewHtml(d) {
   const filas = d.items.map((item, i) => `
-    <tr style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'}">
-      <td style="padding:8px 10px">
-        ${item.descripcion}
-        ${item.tallas ? `<br><small style="color:#94a3b8">${item.tallas}</small>` : ''}
+    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#FBFAF7'}">
+      <td style="padding:8px 10px;border-bottom:1px solid #ECE8E0;color:#423E37">
+        <strong style="color:#14130F;font-weight:600">${item.descripcion}</strong>
+        ${item.tallas ? `<br><small style="color:#8A857B">${item.tallas}</small>` : ''}
       </td>
-      <td style="padding:8px 10px;text-align:center">${item.cantidad}</td>
-      <td style="padding:8px 10px;text-align:right">$${Number(item.precioUnit).toFixed(2)}</td>
-      <td style="padding:8px 10px;text-align:right"><strong>$${Number(item.total).toFixed(2)}</strong></td>
+      <td style="padding:8px 10px;text-align:center;border-bottom:1px solid #ECE8E0">${item.cantidad}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #ECE8E0">$${Number(item.precioUnit).toFixed(2)}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #ECE8E0;color:#14130F"><strong>$${Number(item.total).toFixed(2)}</strong></td>
     </tr>`).join('');
 
   const ivaFila = d.iva > 0 ? `
     <tr>
-      <td colspan="3" style="padding:6px 10px;text-align:right;color:#64748b;font-size:12px">IVA (13%)</td>
-      <td style="padding:6px 10px;text-align:right;font-size:12px">$${Number(d.iva).toFixed(2)}</td>
+      <td colspan="3" style="padding:6px 10px;text-align:right;color:#8A857B;font-size:12px">IVA (13%)</td>
+      <td style="padding:6px 10px;text-align:right;font-size:12px;color:#423E37;font-weight:600">$${Number(d.iva).toFixed(2)}</td>
     </tr>` : '';
 
   return `
-    <h3 style="margin-bottom:4px;color:#1a2e4a">${d.cliente}</h3>
-    <p style="font-size:12px;color:#64748b;margin-bottom:12px">${d.numero} · ${d.fecha}</p>
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead>
-        <tr style="background:#1a2e4a;color:#fff">
-          <th style="padding:8px 10px;text-align:left">Descripción</th>
-          <th style="padding:8px 10px;text-align:center;width:10%">Cant.</th>
-          <th style="padding:8px 10px;text-align:right;width:12%">P.Unit.</th>
-          <th style="padding:8px 10px;text-align:right;width:13%">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filas}
-        ${ivaFila}
-      </tbody>
-    </table>
-    <div style="text-align:right;margin-top:10px;font-size:16px;font-weight:800;color:#1a2e4a">
-      TOTAL: $${Number(d.total).toFixed(2)}
-    </div>
-    <div style="margin-top:6px;font-size:12px;color:#64748b">
-      Pago: ${d.formaPago} &nbsp;·&nbsp; Entrega: ${d.entrega}
+    <div style="background:#ffffff;border-radius:10px;padding:20px 22px;color:#423E37;font-family:'Plus Jakarta Sans',sans-serif">
+      <div style="border-left:3px solid #C4923A;padding-left:12px;margin-bottom:14px">
+        <h3 style="font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:18px;color:#14130F;margin:0">${d.cliente}</h3>
+        <p style="font-size:12px;color:#8A857B;margin:2px 0 0">${d.numero} · ${d.fecha}</p>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:#14130F;color:#fff">
+            <th style="padding:9px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px;font-weight:600">Descripción</th>
+            <th style="padding:9px 10px;text-align:center;width:10%;font-size:10px;text-transform:uppercase;letter-spacing:.7px;font-weight:600">Cant.</th>
+            <th style="padding:9px 10px;text-align:right;width:12%;font-size:10px;text-transform:uppercase;letter-spacing:.7px;font-weight:600">P.Unit.</th>
+            <th style="padding:9px 10px;text-align:right;width:13%;font-size:10px;text-transform:uppercase;letter-spacing:.7px;font-weight:600">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filas}
+          ${ivaFila}
+        </tbody>
+      </table>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:11px 14px;background:#14130F;border-radius:8px">
+        <span style="font-size:12px;color:#E6BE73;letter-spacing:.5px;text-transform:uppercase;font-weight:600">Total</span>
+        <span style="font-family:'Fraunces',Georgia,serif;font-size:19px;font-weight:600;color:#E6BE73">$${Number(d.total).toFixed(2)}</span>
+      </div>
+      <div style="margin-top:8px;font-size:12px;color:#8A857B">
+        Pago: ${d.formaPago} &nbsp;·&nbsp; Entrega: ${d.entrega}
+      </div>
     </div>`;
 }
 
