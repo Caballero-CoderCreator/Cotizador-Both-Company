@@ -49,6 +49,44 @@ async function inicializarContador() {
   }
 }
 
+// ── Contador separado para cotizaciones de gobierno (COT-GOB-###) ──
+const COUNTER_GOB_FILE = path.join(__dirname, 'counter-gobierno.json');
+let quoteCounterGob = 0;
+try {
+  quoteCounterGob = JSON.parse(fs.readFileSync(COUNTER_GOB_FILE, 'utf8')).n || 0;
+} catch { quoteCounterGob = 0; }
+
+function nextQuoteNumberGob() {
+  quoteCounterGob++;
+  try { fs.writeFileSync(COUNTER_GOB_FILE, JSON.stringify({ n: quoteCounterGob }), 'utf8'); } catch {}
+  return `COT-GOB-${String(quoteCounterGob).padStart(3, '0')}`;
+}
+
+async function inicializarContadorGob() {
+  const SUPA_URL = process.env.SUPABASE_URL;
+  const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+  if (!SUPA_URL || !SUPA_KEY) return;
+  try {
+    const res  = await fetch(
+      `${SUPA_URL}/rest/v1/cotizaciones?numero=like.COT-GOB-*&select=numero&order=created_at.desc&limit=1`,
+      { headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` } }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0 && data[0].numero) {
+      const match = data[0].numero.match(/(\d+)$/);
+      if (match) {
+        const n = parseInt(match[1], 10);
+        if (n > quoteCounterGob) {
+          quoteCounterGob = n;
+          console.log(`[CounterGob] Retomando desde ${quoteCounterGob} (último: ${data[0].numero})`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[CounterGob] Error al sincronizar contador:', err.message);
+  }
+}
+
 function formatearPago(tipo, total) {
   const fmt = v => '$' + Number(v).toFixed(2);
   switch (tipo) {
@@ -74,6 +112,27 @@ function fechaHoy() {
     timeZone: 'America/El_Salvador',
   });
 }
+
+// ── Datos legales fijos del oferente (Persona Natural) — versión Gobierno ──
+const { calcularItemsGobierno } = require('./gobierno-calc');
+
+const OFERENTE = {
+  nombre:        'JUAN RAMÓN CABALLERO MACHADO',
+  comercial:     'Both Company',
+  tipoPersona:   'natural',
+  fechaNac:      '27/07/1975',
+  direccion:     'Block 26, Senda 4, Urbanización Nuevo Lourdes, Casa #4, Colón, La Libertad',
+  dui:           '06556130-4',
+  nit:           '9615-270775-101-0',
+  nrc:           '251642-9',
+  giro:          'Comerciante — Venta al por mayor de otros productos',
+  contacto:      'Juan Ramón Caballero',
+  telefono:      '7585-9073',
+  correo:        'bothcompanysv@gmail.com',
+};
+
+const DECLARACION_DEFAULT =
+  'Manifiesto que la persona (natural/jurídica) {OFERENTE}, cuenta con la capacidad legal para poder ofertar y contratar con cualquier institución del Estado, según se establece en el art. 24 de LCP, ni se encuentra impedido para ofertar, acorde al art. 25 de LCP, ni está inhabilitado para participar en procesos de compras institucionales según se establece en el art. 181 de LCP; además declaro que "no empleo" a niños, niñas y adolescentes por debajo de la edad mínima de admisión al empleo, y se cumple con normativa vigente en El Salvador que prohíbe el trabajo infantil y de protección de la persona adolescente trabajadora" y tengo conocimiento que la {INSTITUCION}, está comprometida con los más altos estándares de ética y responsabilidad en todos nuestros procesos y relaciones comerciales. Por lo cual, la Municipalidad de San Salvador Centro ha implementado un Sistema de Gestión Antisoborno, de conformidad a lo establecido en el artículo 16, de la Ley de Compras Públicas, y en relación con la Norma ISO 37001, conforme a las mejores prácticas internacionales, con el objetivo de prevenir y erradicar cualquier forma de soborno o corrupción en nuestras operaciones, me comprometo a cumplir y hacer cumplir su Sistema de Gestión Antisoborno, lo cual incluye sus políticas, procedimientos y demás documentos de gestión, garantizando el cumplimiento de la legislación en materia de prevención de delitos y la gestión de riesgos de soborno, bajo el conocimiento que nuestra colaboración es crucial para fortalecer el compromiso conjunto en la lucha contra el soborno y la corrupción. Por lo tanto, ante el incumplimiento de la Política Antisoborno de la Alcaldía de San Salvador Centro o posibles hechos de soborno, se me aplicará el procedimiento establecido en el artículo 166 literal "d" de la LCP, lo que dará paso al procedimiento del artículo 158 de la Ley de Procedimientos Administrativos para la extinción de la relación comercial.';
 
 const app      = express();
 const PORT     = process.env.PORT || 3000;
@@ -365,6 +424,124 @@ app.post('/actualizar', async (req, res) => {
   }
 });
 
+// ── SYSTEM PROMPT borrador gobierno ──
+const SYSTEM_PROMPT_GOB = `Eres el asistente que arma el cuadro de oferta para licitaciones del Estado de El Salvador de Both Company (uniformes y prendas personalizadas).
+
+A partir del mensaje/requerimiento del cliente, identifica cada bien a ofertar y devuelve un cuadro.
+
+REGLAS:
+1. Un objeto por cada bien distinto. Si hay tallas o variantes que comparten precio, agrúpalas en una sola línea y detállalas en la descripción.
+2. "bien" = nombre corto del producto (ej: "Polo tipo piqué"). "descripcion" = detalle completo (color, tela, tallas, bordado, etc.).
+3. "um" = unidad de medida, normalmente "Unidad". Para pares de calcetas usa "Par".
+4. "precioBase" = precio unitario SIN IVA (número). NO agregues IVA, el sistema lo calcula.
+5. "cantidad" = número entero.
+6. Responde ÚNICAMENTE con JSON válido, sin texto adicional ni markdown.
+
+FORMATO:
+{
+  "items": [
+    { "item": 1, "cantidad": 25, "um": "Unidad", "bien": "Polo tipo piqué", "descripcion": "Polo azul marino con logo bordado, tallas S/M/L", "precioBase": 12.50 }
+  ]
+}`;
+
+// ── POST /gobierno/borrador — la IA arma el cuadro, sin PDF ni correlativo ──
+app.post('/gobierno/borrador', async (req, res) => {
+  const { mensaje } = req.body;
+  if (!mensaje) return res.status(400).json({ error: 'Falta el mensaje del cliente.' });
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1500,
+      system: [{ type: 'text', text: SYSTEM_PROMPT_GOB, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: `Requerimiento del cliente:\n${mensaje}` }],
+    });
+
+    let datos;
+    try {
+      datos = JSON.parse(response.content[0].text);
+    } catch {
+      const match = response.content[0].text.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('La IA no devolvió JSON válido.');
+      datos = JSON.parse(match[0]);
+    }
+
+    const items = Array.isArray(datos.items) ? datos.items.map((it, i) => ({
+      item:        Number(it.item) || (i + 1),
+      cantidad:    Number(it.cantidad) || 0,
+      um:          it.um || 'Unidad',
+      bien:        it.bien || '',
+      descripcion: it.descripcion || '',
+      precioBase:  Number(it.precioBase) || 0,
+    })) : [];
+
+    res.json({ items });
+  } catch (err) {
+    console.error('Error en /gobierno/borrador:', err.message);
+    res.status(500).json({ error: 'Error al generar el borrador: ' + err.message });
+  }
+});
+
+// ── POST /gobierno/generar — items ya editados -> PDF 2 páginas + correlativo + CRM ──
+app.post('/gobierno/generar', async (req, res) => {
+  const {
+    institucion, tipoPersona, items, validez, formaPago,
+    formaEntrega, lugarEntrega, garantia, declaracion,
+  } = req.body;
+
+  if (!institucion || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Falta la institución o los ítems.' });
+  }
+
+  try {
+    const { items: itemsCalc, total } = calcularItemsGobierno(items);
+
+    const datos = {
+      numero:       nextQuoteNumberGob(),
+      fecha:        fechaHoy(),
+      institucion,
+      tipoPersona:  tipoPersona === 'jurídica' ? 'jurídica' : 'natural',
+      oferente:     OFERENTE,
+      items:        itemsCalc,
+      total,
+      validez:      validez || '',
+      formaPago:    formaPago || '',
+      formaEntrega: formaEntrega || '',
+      lugarEntrega: lugarEntrega || '',
+      garantia:     garantia || '',
+      declaracion:  declaracion || DECLARACION_DEFAULT,
+    };
+
+    const html    = generarHtmlCotizacionGobierno(datos, LOGO_B64);
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.evaluateHandle('document.fonts.ready');
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      margin: { top: '15mm', right: '16mm', bottom: '15mm', left: '16mm' },
+      printBackground: true,
+    });
+    await browser.close();
+
+    res.json({
+      numero:      datos.numero,
+      cliente:     institucion,
+      previewHtml: generarPreviewGobierno(datos),
+      pdfBase64:   pdfBuffer.toString('base64'),
+    });
+
+    // Sync CRM en background — no bloquea la respuesta
+    guardarGobiernoEnCRM(datos, pdfBuffer).catch(err => console.error('[CRM gob]', err.message));
+  } catch (err) {
+    console.error('Error en /gobierno/generar:', err.message);
+    res.status(500).json({ error: 'Error al generar la cotización: ' + err.message });
+  }
+});
+
 // ───────────────────────────────────────────────────────────────────
 //  HTML DEL PDF
 // ───────────────────────────────────────────────────────────────────
@@ -584,6 +761,245 @@ function generarPreviewHtml(d) {
     </div>`;
 }
 
+function generarHtmlCotizacionGobierno(d, logoB64) {
+  const fmt = v => '$' + Number(v).toFixed(2);
+
+  const filas = d.items.map(item => `
+    <tr>
+      <td style="padding:9px 8px;text-align:center;border:1px solid #D8D3C8">${item.item}</td>
+      <td style="padding:9px 8px;text-align:center;border:1px solid #D8D3C8">${item.cantidad}</td>
+      <td style="padding:9px 8px;text-align:center;border:1px solid #D8D3C8">${item.um}</td>
+      <td style="padding:9px 8px;border:1px solid #D8D3C8"><strong style="color:#14130F">${item.bien}</strong></td>
+      <td style="padding:9px 8px;border:1px solid #D8D3C8">${item.descripcion}</td>
+      <td style="padding:9px 8px;text-align:right;border:1px solid #D8D3C8">${fmt(item.precioUnit)}</td>
+      <td style="padding:9px 8px;text-align:right;border:1px solid #D8D3C8"><strong>${fmt(item.total)}</strong></td>
+    </tr>`).join('');
+
+  const filaCampo = (label, valor) => `
+    <tr>
+      <td style="padding:5px 10px;font-size:11px;color:#8A857B;width:42%;vertical-align:top">${label}</td>
+      <td style="padding:5px 10px;font-size:11.5px;color:#14130F;font-weight:600">${valor || '—'}</td>
+    </tr>`;
+
+  const declaracionTxt = (d.declaracion || '')
+    .replace('{OFERENTE}', `${d.tipoPersona}, ${d.oferente.nombre}`)
+    .replace('{INSTITUCION}', d.institucion);
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 15mm 16mm; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Plus Jakarta Sans','Segoe UI',Arial,sans-serif; color:#423E37; font-size:12px; line-height:1.5; }
+  .serif { font-family:'Fraunces',Georgia,serif; }
+  table { width:100%; border-collapse:collapse; }
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+  <!-- ENCABEZADO -->
+  <table style="margin-bottom:14px">
+    <tr>
+      <td style="vertical-align:top">
+        <img src="${logoB64}" alt="Both Company" style="height:54px;width:auto;display:block;margin-bottom:6px" />
+        <div style="font-size:10px;color:#8A857B;line-height:1.6">
+          Uniformes · Bordados · Estampados — El Salvador<br>
+          ${d.oferente.correo} · WhatsApp ${d.oferente.telefono} · NRC: ${d.oferente.nrc}
+        </div>
+      </td>
+      <td style="text-align:right;vertical-align:top">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:3px;color:#8A857B;font-weight:600">Cotización</div>
+        <div class="serif" style="font-size:26px;font-weight:600;color:#14130F;line-height:1.05;margin-top:2px">${d.numero}</div>
+        <div style="font-size:11px;color:#8A857B;margin-top:4px">Fecha: ${d.fecha}</div>
+      </td>
+    </tr>
+  </table>
+  <div style="height:2.5px;background:#14130F;border-radius:2px"></div>
+  <div style="height:2.5px;background:#C4923A;border-radius:2px;margin-top:2.5px;margin-bottom:16px;width:42%"></div>
+
+  <!-- INSTITUCIÓN -->
+  <div style="margin-bottom:14px;font-size:11.5px">
+    <span style="font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:#A67C2E;font-weight:700">Señores</span><br>
+    <strong class="serif" style="font-size:16px;color:#14130F">${d.institucion}</strong>
+  </div>
+
+  <!-- DATOS DEL OFERENTE -->
+  <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:#A67C2E;font-weight:700;margin-bottom:6px">Datos del Oferente</div>
+  <table style="margin-bottom:16px;background:#FBFAF7;border:1px solid #ECE8E0;border-radius:8px;overflow:hidden">
+    ${filaCampo('Nombre completo (Persona Natural)', d.oferente.nombre)}
+    ${filaCampo('Nombre comercial', d.oferente.comercial)}
+    ${filaCampo('Fecha de nacimiento', d.oferente.fechaNac)}
+    ${filaCampo('Dirección', d.oferente.direccion)}
+    ${filaCampo('Teléfonos', d.oferente.telefono)}
+    ${filaCampo('Documento de identidad (DUI)', d.oferente.dui)}
+    ${filaCampo('NIT', d.oferente.nit)}
+    ${filaCampo('NRC', d.oferente.nrc)}
+    ${filaCampo('Persona de contacto', d.oferente.contacto)}
+    ${filaCampo('Correo para notificaciones', d.oferente.correo)}
+  </table>
+
+  <!-- CUADRO DE OFERTA -->
+  <table style="margin-bottom:4px;font-size:10.5px">
+    <thead>
+      <tr style="background:#14130F;color:#fff">
+        <th style="padding:8px 6px;border:1px solid #14130F;width:6%">ÍTEM</th>
+        <th style="padding:8px 6px;border:1px solid #14130F;width:8%">CANTIDAD</th>
+        <th style="padding:8px 6px;border:1px solid #14130F;width:8%">U/M</th>
+        <th style="padding:8px 6px;border:1px solid #14130F;width:16%">BIEN</th>
+        <th style="padding:8px 6px;border:1px solid #14130F">DESCRIPCIÓN DEL BIEN</th>
+        <th style="padding:8px 6px;border:1px solid #14130F;width:14%">PRECIO UNITARIO<br>(CON IVA)</th>
+        <th style="padding:8px 6px;border:1px solid #14130F;width:14%">PRECIO TOTAL<br>(CON IVA)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filas}
+      <tr style="background:#14130F;color:#fff">
+        <td colspan="6" style="padding:10px;text-align:right;font-weight:600;border:1px solid #14130F">TOTAL (CON IVA INCLUIDO)</td>
+        <td class="serif" style="padding:10px;text-align:right;font-weight:600;font-size:15px;color:#E6BE73;border:1px solid #14130F">${fmt(d.total)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- CONDICIONES -->
+  <table style="margin-top:16px;font-size:11.5px;background:#FBFAF7;border:1px solid #ECE8E0;border-radius:8px;overflow:hidden">
+    ${filaCampo('Validez de la oferta', d.validez)}
+    ${filaCampo('Forma de pago', d.formaPago)}
+    ${filaCampo('Forma de entrega', d.formaEntrega)}
+    ${filaCampo('Lugar donde se requiere el bien', d.lugarEntrega)}
+    ${filaCampo('Garantía de fabricación / funcionamiento', d.garantia)}
+  </table>
+
+  <!-- PÁGINA 2: DECLARACIÓN JURADA -->
+  <div class="page-break"></div>
+  <div style="height:2.5px;background:#14130F;border-radius:2px"></div>
+  <div style="height:2.5px;background:#C4923A;border-radius:2px;margin-top:2.5px;margin-bottom:20px;width:42%"></div>
+
+  <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:#A67C2E;font-weight:700;margin-bottom:10px">Declaración Jurada</div>
+
+  <p style="font-size:12px;color:#2A2823;line-height:1.85;text-align:justify">
+    ${declaracionTxt}
+  </p>
+
+  <!-- FIRMA Y SELLO -->
+  <div style="margin-top:70px">
+    <table>
+      <tr>
+        <td style="width:55%;padding-right:24px">
+          <div style="border-top:1.5px solid #14130F;padding-top:8px">
+            <div style="font-size:12px;color:#14130F;font-weight:600">${d.oferente.nombre}</div>
+            <div style="font-size:11px;color:#423E37;margin-top:2px">DUI: ${d.oferente.dui}</div>
+            <div style="font-size:11px;color:#8A857B;margin-top:1px">Firma y sello de la empresa</div>
+          </div>
+        </td>
+        <td style="width:45%"></td>
+      </tr>
+    </table>
+  </div>
+
+</body>
+</html>`;
+}
+
+function generarPreviewGobierno(d) {
+  const fmt = v => '$' + Number(v).toFixed(2);
+  const filas = d.items.map(item => `
+    <tr style="background:#ffffff">
+      <td style="padding:8px 10px;border-bottom:1px solid #ECE8E0">
+        <strong style="color:#14130F">${item.bien}</strong><br>
+        <small style="color:#8A857B">${item.descripcion}</small>
+      </td>
+      <td style="padding:8px 10px;text-align:center;border-bottom:1px solid #ECE8E0">${item.cantidad} ${item.um}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #ECE8E0">${fmt(item.precioUnit)}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #ECE8E0;color:#14130F"><strong>${fmt(item.total)}</strong></td>
+    </tr>`).join('');
+
+  return `
+    <div style="background:#ffffff;border-radius:10px;padding:20px 22px;color:#423E37;font-family:'Plus Jakarta Sans',sans-serif">
+      <div style="border-left:3px solid #C4923A;padding-left:12px;margin-bottom:14px">
+        <h3 style="font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:18px;color:#14130F;margin:0">${d.institucion}</h3>
+        <p style="font-size:12px;color:#8A857B;margin:2px 0 0">${d.numero} · ${d.fecha} · Oferta de gobierno</p>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:#14130F;color:#fff">
+            <th style="padding:9px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px">Bien</th>
+            <th style="padding:9px 10px;text-align:center;font-size:10px;text-transform:uppercase">Cant.</th>
+            <th style="padding:9px 10px;text-align:right;font-size:10px;text-transform:uppercase">P.Unit (IVA)</th>
+            <th style="padding:9px 10px;text-align:right;font-size:10px;text-transform:uppercase">Total</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:11px 14px;background:#14130F;border-radius:8px">
+        <span style="font-size:12px;color:#E6BE73;text-transform:uppercase;font-weight:600">Total con IVA</span>
+        <span style="font-family:'Fraunces',Georgia,serif;font-size:19px;font-weight:600;color:#E6BE73">${fmt(d.total)}</span>
+      </div>
+    </div>`;
+}
+
+async function guardarGobiernoEnCRM(datos, pdfBuffer) {
+  const SUPA_URL = process.env.SUPABASE_URL;
+  const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+  if (!SUPA_URL || !SUPA_KEY) return;
+
+  const h = {
+    apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`,
+    'Content-Type': 'application/json', Accept: 'application/json',
+  };
+
+  // Cliente = institución
+  const searchRes = await fetch(
+    `${SUPA_URL}/rest/v1/clientes?nombre=eq.${encodeURIComponent(datos.institucion)}&limit=1&select=id`,
+    { headers: h }
+  );
+  const encontrados = await searchRes.json();
+  let clienteId;
+  if (Array.isArray(encontrados) && encontrados.length > 0) {
+    clienteId = encontrados[0].id;
+  } else {
+    const insertRes = await fetch(`${SUPA_URL}/rest/v1/clientes`, {
+      method: 'POST', headers: { ...h, Prefer: 'return=representation' },
+      body: JSON.stringify({ nombre: datos.institucion }),
+    });
+    const [nuevo] = await insertRes.json();
+    clienteId = nuevo?.id;
+  }
+  if (!clienteId) { console.error('[CRM gob] sin cliente_id'); return; }
+
+  let pdfUrl = null;
+  if (pdfBuffer) {
+    const filename = `${datos.numero}.pdf`;
+    const storageRes = await fetch(
+      `${SUPA_URL}/storage/v1/object/cotizaciones-pdf/${filename}`,
+      { method: 'POST', headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`, 'Content-Type': 'application/pdf', 'x-upsert': 'true' }, body: pdfBuffer }
+    );
+    if (storageRes.ok) pdfUrl = `${SUPA_URL}/storage/v1/object/public/cotizaciones-pdf/${filename}`;
+    else console.error('[CRM gob] PDF upload error:', await storageRes.text());
+  }
+
+  await fetch(`${SUPA_URL}/rest/v1/cotizaciones`, {
+    method: 'POST', headers: { ...h, Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      cliente_id: clienteId, numero: datos.numero, estado: 'borrador',
+      total: datos.total, notas: `Cotización gobierno · ${datos.institucion}`,
+      pdf_url: pdfUrl,
+      datos: {
+        tipo: 'gobierno', institucion: datos.institucion, items: datos.items,
+        total: datos.total, validez: datos.validez, formaPago: datos.formaPago,
+        formaEntrega: datos.formaEntrega, lugarEntrega: datos.lugarEntrega, garantia: datos.garantia,
+      },
+    }),
+  });
+  console.log(`[CRM gob] ✅ ${datos.numero} guardado (${datos.institucion})`);
+}
+
 // ───────────────────────────────────────────────────────────────────
 //  SYNC AL CRM (Supabase) — fire-and-forget, no bloquea la respuesta
 // ───────────────────────────────────────────────────────────────────
@@ -682,8 +1098,9 @@ async function guardarEnCRM(datos, pdfBuffer, opciones = {}) {
 // ───────────────────────────────────────────────────────────────────
 (async () => {
   await inicializarContador();
+  await inicializarContadorGob();
   app.listen(PORT, () => {
-    console.log(`✅ Both Company Cotizador corriendo en puerto ${PORT} (contador: ${quoteCounter})`);
+    console.log(`✅ Both Company Cotizador corriendo en puerto ${PORT} (com: ${quoteCounter} · gob: ${quoteCounterGob})`);
   });
 })();
 

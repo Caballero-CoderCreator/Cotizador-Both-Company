@@ -563,8 +563,22 @@
   <h1 class="page-title">Nueva Cotización</h1>
   <p class="page-sub">Pega el mensaje del cliente y genera la cotización profesional en segundos.</p>
 
+  <!-- SELECTOR DE VERSIÓN -->
+  <div class="toggles" style="margin-bottom:28px">
+    <label class="toggle-chip">
+      <input type="radio" name="version" value="comercial" checked onchange="cambiarVersion('comercial')" />
+      <span class="dot"></span> Comercial (v1)
+    </label>
+    <label class="toggle-chip">
+      <input type="radio" name="version" value="gobierno" onchange="cambiarVersion('gobierno')" />
+      <span class="dot"></span> Gobierno (v2)
+    </label>
+  </div>
+
   <!-- AVISO API — oculto en producción -->
   <div class="aviso-api" id="avisoApi" style="display:none"></div>
+
+  <div id="bloque-comercial">
 
   <!-- FORMULARIO -->
   <div class="card">
@@ -699,6 +713,122 @@
       </div>
     </div>
   </div>
+
+  </div><!-- /#bloque-comercial -->
+
+  <div id="bloque-gobierno" style="display:none">
+
+    <div class="card">
+      <div class="card-title">Institución y requerimiento</div>
+      <div class="form-row single" style="margin-bottom:16px">
+        <div>
+          <label>Institución del Estado <span class="required">*</span></label>
+          <input type="text" id="g_institucion" value="Alcaldía de San Salvador Centro" />
+        </div>
+      </div>
+      <div class="form-row single">
+        <div>
+          <label>Requerimiento del cliente <span class="required">*</span></label>
+          <textarea class="mensaje" id="g_mensaje" placeholder="Pega el requerimiento. La IA armará el cuadro y luego podrás editarlo."></textarea>
+        </div>
+      </div>
+      <button class="btn-nueva" style="margin-top:14px;width:100%" onclick="generarBorradorGob()">Generar borrador del cuadro</button>
+    </div>
+
+    <div class="card" id="g_cuadro_card" style="display:none">
+      <div class="card-title">Cuadro de oferta (editable)</div>
+      <div style="overflow-x:auto">
+        <table class="items-table" id="g_tabla">
+          <thead>
+            <tr>
+              <th>Ítem</th><th>Cant.</th><th>U/M</th><th>Bien</th><th>Descripción</th><th>Precio base</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="g_tbody"></tbody>
+        </table>
+      </div>
+      <button class="btn-nueva" style="margin-top:12px" onclick="agregarFilaGob()">+ Agregar fila</button>
+    </div>
+
+    <div class="card" id="g_cond_card" style="display:none">
+      <div class="card-title">Condiciones</div>
+      <div class="form-row">
+        <div><label>Validez de la oferta</label><input type="text" id="g_validez" list="dl_validez" value="30 días" autocomplete="off" /></div>
+        <div><label>Forma de pago</label><input type="text" id="g_formaPago" list="dl_formaPago" value="Crédito a 30 días" autocomplete="off" /></div>
+      </div>
+      <div class="form-row">
+        <div><label>Forma de entrega</label><input type="text" id="g_formaEntrega" list="dl_formaEntrega" value="Entrega única" autocomplete="off" /></div>
+        <div><label>Lugar donde se requiere el bien</label><input type="text" id="g_lugar" list="dl_lugar" autocomplete="off" /></div>
+      </div>
+      <div class="form-row">
+        <div><label>Garantía de fabricación / funcionamiento</label><input type="text" id="g_garantia" list="dl_garantia" autocomplete="off" /></div>
+        <div>
+          <label>Tipo de persona (declaración)</label>
+          <select id="g_tipoPersona"><option value="natural" selected>Natural</option><option value="jurídica">Jurídica</option></select>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div>
+          <label>Texto de la declaración jurada</label>
+          <textarea id="g_declaracion" style="min-height:180px"></textarea>
+          <p class="hint">Precargada para Alcaldía de San Salvador Centro. Edítala si ofertas a otra institución.</p>
+        </div>
+      </div>
+      <button class="btn-generar" style="margin-top:14px" onclick="generarPdfGob()">Generar PDF de gobierno</button>
+    </div>
+
+    <div id="g_resultado" style="display:none;margin-top:24px">
+      <div class="card">
+        <div class="resultado-header">
+          <div class="resultado-badge">✓ Cotización lista</div>
+          <span class="resultado-num" id="g_num"></span>
+        </div>
+        <div class="preview-box" id="g_preview"></div>
+        <div class="acciones">
+          <button class="btn-pdf" onclick="descargarPdfGob()">Descargar PDF</button>
+          <button class="btn-nueva" onclick="nuevaGob()">Nueva cotización</button>
+        </div>
+      </div>
+    </div>
+
+  <!-- OPCIONES PREDEFINIDAS (seleccionables + editables) -->
+  <datalist id="dl_validez">
+    <option value="15 días"></option>
+    <option value="30 días"></option>
+    <option value="45 días"></option>
+    <option value="60 días"></option>
+    <option value="90 días"></option>
+  </datalist>
+  <datalist id="dl_formaPago">
+    <option value="Contado"></option>
+    <option value="Crédito a 30 días"></option>
+    <option value="Crédito a 60 días"></option>
+    <option value="Crédito a 90 días"></option>
+    <option value="100% contra entrega"></option>
+    <option value="50% anticipo — 50% contra entrega"></option>
+  </datalist>
+  <datalist id="dl_formaEntrega">
+    <option value="Entrega única"></option>
+    <option value="Entregas parciales"></option>
+    <option value="Según programación de la institución"></option>
+    <option value="Inmediata"></option>
+  </datalist>
+  <datalist id="dl_lugar">
+    <option value="Instalaciones de la institución"></option>
+    <option value="Bodega central de la institución"></option>
+    <option value="Alcaldía de San Salvador Centro"></option>
+    <option value="San Salvador"></option>
+  </datalist>
+  <datalist id="dl_garantia">
+    <option value="No aplica"></option>
+    <option value="3 meses"></option>
+    <option value="6 meses"></option>
+    <option value="1 año"></option>
+    <option value="12 meses contra defectos de fabricación"></option>
+    <option value="Garantía de fabricación contra defectos de confección"></option>
+  </datalist>
+
+  </div><!-- /#bloque-gobierno -->
 
 </div>
 
@@ -892,6 +1022,118 @@
         clearInterval(iv);
       }
     }, 700);
+  }
+
+  // ═══ VERSIÓN GOBIERNO ═══
+  const DECLARACION_GOB = 'Manifiesto que la persona (natural/jurídica) {OFERENTE}, cuenta con la capacidad legal para poder ofertar y contratar con cualquier institución del Estado, según se establece en el art. 24 de LCP, ni se encuentra impedido para ofertar, acorde al art. 25 de LCP, ni está inhabilitado para participar en procesos de compras institucionales según se establece en el art. 181 de LCP; además declaro que "no empleo" a niños, niñas y adolescentes por debajo de la edad mínima de admisión al empleo, y se cumple con normativa vigente en El Salvador que prohíbe el trabajo infantil y de protección de la persona adolescente trabajadora" y tengo conocimiento que la {INSTITUCION}, está comprometida con los más altos estándares de ética y responsabilidad en todos nuestros procesos y relaciones comerciales. Por lo cual, la Municipalidad de San Salvador Centro ha implementado un Sistema de Gestión Antisoborno, de conformidad a lo establecido en el artículo 16, de la Ley de Compras Públicas, y en relación con la Norma ISO 37001, conforme a las mejores prácticas internacionales, con el objetivo de prevenir y erradicar cualquier forma de soborno o corrupción en nuestras operaciones, me comprometo a cumplir y hacer cumplir su Sistema de Gestión Antisoborno, lo cual incluye sus políticas, procedimientos y demás documentos de gestión, garantizando el cumplimiento de la legislación en materia de prevención de delitos y la gestión de riesgos de soborno, bajo el conocimiento que nuestra colaboración es crucial para fortalecer el compromiso conjunto en la lucha contra el soborno y la corrupción. Por lo tanto, ante el incumplimiento de la Política Antisoborno de la Alcaldía de San Salvador Centro o posibles hechos de soborno, se me aplicará el procedimiento establecido en el artículo 166 literal "d" de la LCP, lo que dará paso al procedimiento del artículo 158 de la Ley de Procedimientos Administrativos para la extinción de la relación comercial.';
+  let gobPdfBlob = null;
+
+  document.getElementById('g_declaracion').value = DECLARACION_GOB;
+
+  function cambiarVersion(v) {
+    document.getElementById('bloque-comercial').style.display = v === 'comercial' ? 'block' : 'none';
+    document.getElementById('bloque-gobierno').style.display  = v === 'gobierno'  ? 'block' : 'none';
+    document.querySelector('.header-badge').textContent = v === 'gobierno' ? 'Gobierno v2' : 'v1.0';
+  }
+
+  function filaGobHtml(it = {}) {
+    return `<tr>
+      <td><input type="text" value="${it.item || ''}" style="width:42px"></td>
+      <td><input type="text" value="${it.cantidad || ''}" style="width:54px"></td>
+      <td><input type="text" value="${it.um || 'Unidad'}" style="width:70px"></td>
+      <td><input type="text" value="${(it.bien || '').replace(/"/g,'&quot;')}"></td>
+      <td><input type="text" value="${(it.descripcion || '').replace(/"/g,'&quot;')}"></td>
+      <td><input type="text" value="${it.precioBase || ''}" style="width:80px"></td>
+      <td><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#F87171;cursor:pointer">✕</button></td>
+    </tr>`;
+  }
+
+  function agregarFilaGob() {
+    document.getElementById('g_tbody').insertAdjacentHTML('beforeend', filaGobHtml());
+  }
+
+  function leerItemsGob() {
+    return [...document.querySelectorAll('#g_tbody tr')].map((tr, i) => {
+      const c = tr.querySelectorAll('input');
+      return {
+        item: c[0].value || (i + 1), cantidad: c[1].value, um: c[2].value,
+        bien: c[3].value, descripcion: c[4].value, precioBase: c[5].value,
+      };
+    });
+  }
+
+  function generarBorradorGob() {
+    const mensaje = document.getElementById('g_mensaje').value.trim();
+    if (!mensaje) { alert('Pega el requerimiento del cliente.'); return; }
+    const btn = event.target; btn.disabled = true; btn.textContent = 'Generando borrador...';
+    fetch('/gobierno/borrador', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mensaje }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.getElementById('g_tbody');
+      tbody.innerHTML = (data.items || []).map(filaGobHtml).join('') || filaGobHtml();
+      document.getElementById('g_cuadro_card').style.display = 'block';
+      document.getElementById('g_cond_card').style.display   = 'block';
+      document.getElementById('g_cuadro_card').scrollIntoView({ behavior: 'smooth' });
+    })
+    .catch(() => alert('No se pudo generar el borrador.'))
+    .finally(() => { btn.disabled = false; btn.textContent = 'Generar borrador del cuadro'; });
+  }
+
+  function generarPdfGob() {
+    const institucion = document.getElementById('g_institucion').value.trim();
+    const items = leerItemsGob();
+    if (!institucion || items.length === 0) { alert('Falta institución o ítems.'); return; }
+    const btn = event.target; btn.disabled = true; btn.textContent = 'Generando PDF...';
+    fetch('/gobierno/generar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        institucion, tipoPersona: document.getElementById('g_tipoPersona').value,
+        items,
+        validez:      document.getElementById('g_validez').value,
+        formaPago:    document.getElementById('g_formaPago').value,
+        formaEntrega: document.getElementById('g_formaEntrega').value,
+        lugarEntrega: document.getElementById('g_lugar').value,
+        garantia:     document.getElementById('g_garantia').value,
+        declaracion:  document.getElementById('g_declaracion').value,
+      }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('g_num').textContent     = data.numero || '';
+      document.getElementById('g_preview').innerHTML    = data.previewHtml || '';
+      window._gobInst = institucion;
+      if (data.pdfBase64) {
+        const bytes = atob(data.pdfBase64); const arr = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+        gobPdfBlob = new Blob([arr], { type: 'application/pdf' });
+      }
+      document.getElementById('g_resultado').style.display = 'block';
+      document.getElementById('g_resultado').scrollIntoView({ behavior: 'smooth' });
+    })
+    .catch(() => alert('No se pudo generar el PDF.'))
+    .finally(() => { btn.disabled = false; btn.textContent = 'Generar PDF de gobierno'; });
+  }
+
+  function descargarPdfGob() {
+    if (!gobPdfBlob) return;
+    const url = URL.createObjectURL(gobPdfBlob);
+    const a = document.createElement('a');
+    const num = document.getElementById('g_num').textContent;
+    a.href = url; a.download = `Cotizacion-Gobierno-${num}.pdf`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function nuevaGob() {
+    document.getElementById('g_resultado').style.display = 'none';
+    document.getElementById('g_cuadro_card').style.display = 'none';
+    document.getElementById('g_cond_card').style.display = 'none';
+    document.getElementById('g_mensaje').value = '';
+    document.getElementById('g_tbody').innerHTML = '';
+    gobPdfBlob = null;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 </script>
 
