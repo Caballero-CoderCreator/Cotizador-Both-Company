@@ -482,6 +482,66 @@ app.post('/gobierno/borrador', async (req, res) => {
   }
 });
 
+// ── POST /gobierno/generar — items ya editados -> PDF 2 páginas + correlativo + CRM ──
+app.post('/gobierno/generar', async (req, res) => {
+  const {
+    institucion, tipoPersona, items, validez, formaPago,
+    formaEntrega, lugarEntrega, garantia, declaracion,
+  } = req.body;
+
+  if (!institucion || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Falta la institución o los ítems.' });
+  }
+
+  try {
+    const { items: itemsCalc, total } = calcularItemsGobierno(items);
+
+    const datos = {
+      numero:       nextQuoteNumberGob(),
+      fecha:        fechaHoy(),
+      institucion,
+      tipoPersona:  tipoPersona === 'jurídica' ? 'jurídica' : 'natural',
+      oferente:     OFERENTE,
+      items:        itemsCalc,
+      total,
+      validez:      validez || '',
+      formaPago:    formaPago || '',
+      formaEntrega: formaEntrega || '',
+      lugarEntrega: lugarEntrega || '',
+      garantia:     garantia || '',
+      declaracion:  declaracion || DECLARACION_DEFAULT,
+    };
+
+    const html    = generarHtmlCotizacionGobierno(datos, LOGO_B64);
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.evaluateHandle('document.fonts.ready');
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      margin: { top: '15mm', right: '16mm', bottom: '15mm', left: '16mm' },
+      printBackground: true,
+    });
+    await browser.close();
+
+    res.json({
+      numero:      datos.numero,
+      cliente:     institucion,
+      previewHtml: generarPreviewGobierno(datos),
+      pdfBase64:   pdfBuffer.toString('base64'),
+    });
+
+    // Sync CRM en background — no bloquea la respuesta
+    guardarGobiernoEnCRM(datos, pdfBuffer).catch(err => console.error('[CRM gob]', err.message));
+  } catch (err) {
+    console.error('Error en /gobierno/generar:', err.message);
+    res.status(500).json({ error: 'Error al generar la cotización: ' + err.message });
+  }
+});
+
 // ───────────────────────────────────────────────────────────────────
 //  HTML DEL PDF
 // ───────────────────────────────────────────────────────────────────
@@ -845,6 +905,99 @@ function generarHtmlCotizacionGobierno(d, logoB64) {
 
 </body>
 </html>`;
+}
+
+function generarPreviewGobierno(d) {
+  const fmt = v => '$' + Number(v).toFixed(2);
+  const filas = d.items.map(item => `
+    <tr style="background:#ffffff">
+      <td style="padding:8px 10px;border-bottom:1px solid #ECE8E0">
+        <strong style="color:#14130F">${item.bien}</strong><br>
+        <small style="color:#8A857B">${item.descripcion}</small>
+      </td>
+      <td style="padding:8px 10px;text-align:center;border-bottom:1px solid #ECE8E0">${item.cantidad} ${item.um}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #ECE8E0">${fmt(item.precioUnit)}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #ECE8E0;color:#14130F"><strong>${fmt(item.total)}</strong></td>
+    </tr>`).join('');
+
+  return `
+    <div style="background:#ffffff;border-radius:10px;padding:20px 22px;color:#423E37;font-family:'Plus Jakarta Sans',sans-serif">
+      <div style="border-left:3px solid #C4923A;padding-left:12px;margin-bottom:14px">
+        <h3 style="font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:18px;color:#14130F;margin:0">${d.institucion}</h3>
+        <p style="font-size:12px;color:#8A857B;margin:2px 0 0">${d.numero} · ${d.fecha} · Oferta de gobierno</p>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:#14130F;color:#fff">
+            <th style="padding:9px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px">Bien</th>
+            <th style="padding:9px 10px;text-align:center;font-size:10px;text-transform:uppercase">Cant.</th>
+            <th style="padding:9px 10px;text-align:right;font-size:10px;text-transform:uppercase">P.Unit (IVA)</th>
+            <th style="padding:9px 10px;text-align:right;font-size:10px;text-transform:uppercase">Total</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:11px 14px;background:#14130F;border-radius:8px">
+        <span style="font-size:12px;color:#E6BE73;text-transform:uppercase;font-weight:600">Total con IVA</span>
+        <span style="font-family:'Fraunces',Georgia,serif;font-size:19px;font-weight:600;color:#E6BE73">${fmt(d.total)}</span>
+      </div>
+    </div>`;
+}
+
+async function guardarGobiernoEnCRM(datos, pdfBuffer) {
+  const SUPA_URL = process.env.SUPABASE_URL;
+  const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+  if (!SUPA_URL || !SUPA_KEY) return;
+
+  const h = {
+    apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`,
+    'Content-Type': 'application/json', Accept: 'application/json',
+  };
+
+  // Cliente = institución
+  const searchRes = await fetch(
+    `${SUPA_URL}/rest/v1/clientes?nombre=eq.${encodeURIComponent(datos.institucion)}&limit=1&select=id`,
+    { headers: h }
+  );
+  const encontrados = await searchRes.json();
+  let clienteId;
+  if (Array.isArray(encontrados) && encontrados.length > 0) {
+    clienteId = encontrados[0].id;
+  } else {
+    const insertRes = await fetch(`${SUPA_URL}/rest/v1/clientes`, {
+      method: 'POST', headers: { ...h, Prefer: 'return=representation' },
+      body: JSON.stringify({ nombre: datos.institucion }),
+    });
+    const [nuevo] = await insertRes.json();
+    clienteId = nuevo?.id;
+  }
+  if (!clienteId) { console.error('[CRM gob] sin cliente_id'); return; }
+
+  let pdfUrl = null;
+  if (pdfBuffer) {
+    const filename = `${datos.numero}.pdf`;
+    const storageRes = await fetch(
+      `${SUPA_URL}/storage/v1/object/cotizaciones-pdf/${filename}`,
+      { method: 'POST', headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`, 'Content-Type': 'application/pdf', 'x-upsert': 'true' }, body: pdfBuffer }
+    );
+    if (storageRes.ok) pdfUrl = `${SUPA_URL}/storage/v1/object/public/cotizaciones-pdf/${filename}`;
+    else console.error('[CRM gob] PDF upload error:', await storageRes.text());
+  }
+
+  await fetch(`${SUPA_URL}/rest/v1/cotizaciones`, {
+    method: 'POST', headers: { ...h, Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      cliente_id: clienteId, numero: datos.numero, estado: 'borrador',
+      total: datos.total, notas: `Cotización gobierno · ${datos.institucion}`,
+      pdf_url: pdfUrl,
+      datos: {
+        tipo: 'gobierno', institucion: datos.institucion, items: datos.items,
+        total: datos.total, validez: datos.validez, formaPago: datos.formaPago,
+        formaEntrega: datos.formaEntrega, lugarEntrega: datos.lugarEntrega, garantia: datos.garantia,
+      },
+    }),
+  });
+  console.log(`[CRM gob] ✅ ${datos.numero} guardado (${datos.institucion})`);
 }
 
 // ───────────────────────────────────────────────────────────────────
