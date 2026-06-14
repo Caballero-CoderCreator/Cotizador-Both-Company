@@ -643,6 +643,152 @@ function generarPreviewHtml(d) {
     </div>`;
 }
 
+function generarHtmlCotizacionGobierno(d, logoB64) {
+  const fmt = v => '$' + Number(v).toFixed(2);
+
+  const filas = d.items.map(item => `
+    <tr>
+      <td style="padding:9px 8px;text-align:center;border:1px solid #D8D3C8">${item.item}</td>
+      <td style="padding:9px 8px;text-align:center;border:1px solid #D8D3C8">${item.cantidad}</td>
+      <td style="padding:9px 8px;text-align:center;border:1px solid #D8D3C8">${item.um}</td>
+      <td style="padding:9px 8px;border:1px solid #D8D3C8"><strong style="color:#14130F">${item.bien}</strong></td>
+      <td style="padding:9px 8px;border:1px solid #D8D3C8">${item.descripcion}</td>
+      <td style="padding:9px 8px;text-align:right;border:1px solid #D8D3C8">${fmt(item.precioUnit)}</td>
+      <td style="padding:9px 8px;text-align:right;border:1px solid #D8D3C8"><strong>${fmt(item.total)}</strong></td>
+    </tr>`).join('');
+
+  const filaCampo = (label, valor) => `
+    <tr>
+      <td style="padding:5px 10px;font-size:11px;color:#8A857B;width:42%;vertical-align:top">${label}</td>
+      <td style="padding:5px 10px;font-size:11.5px;color:#14130F;font-weight:600">${valor || '—'}</td>
+    </tr>`;
+
+  const declaracionTxt = (d.declaracion || '')
+    .replace('{OFERENTE}', `${d.tipoPersona}, ${d.oferente.nombre}`)
+    .replace('{INSTITUCION}', d.institucion);
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 15mm 16mm; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Plus Jakarta Sans','Segoe UI',Arial,sans-serif; color:#423E37; font-size:12px; line-height:1.5; }
+  .serif { font-family:'Fraunces',Georgia,serif; }
+  table { width:100%; border-collapse:collapse; }
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+  <!-- ENCABEZADO -->
+  <table style="margin-bottom:14px">
+    <tr>
+      <td style="vertical-align:top">
+        <img src="${logoB64}" alt="Both Company" style="height:54px;width:auto;display:block;margin-bottom:6px" />
+        <div style="font-size:10px;color:#8A857B;line-height:1.6">
+          Uniformes · Bordados · Estampados — El Salvador<br>
+          ${d.oferente.correo} · WhatsApp ${d.oferente.telefono} · NRC: ${d.oferente.nrc}
+        </div>
+      </td>
+      <td style="text-align:right;vertical-align:top">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:3px;color:#8A857B;font-weight:600">Cotización</div>
+        <div class="serif" style="font-size:26px;font-weight:600;color:#14130F;line-height:1.05;margin-top:2px">${d.numero}</div>
+        <div style="font-size:11px;color:#8A857B;margin-top:4px">Fecha: ${d.fecha}</div>
+      </td>
+    </tr>
+  </table>
+  <div style="height:2.5px;background:#14130F;border-radius:2px"></div>
+  <div style="height:2.5px;background:#C4923A;border-radius:2px;margin-top:2.5px;margin-bottom:16px;width:42%"></div>
+
+  <!-- INSTITUCIÓN -->
+  <div style="margin-bottom:14px;font-size:11.5px">
+    <span style="font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:#A67C2E;font-weight:700">Señores</span><br>
+    <strong class="serif" style="font-size:16px;color:#14130F">${d.institucion}</strong>
+  </div>
+
+  <!-- DATOS DEL OFERENTE -->
+  <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:#A67C2E;font-weight:700;margin-bottom:6px">Datos del Oferente</div>
+  <table style="margin-bottom:16px;background:#FBFAF7;border:1px solid #ECE8E0;border-radius:8px;overflow:hidden">
+    ${filaCampo('Nombre completo (Persona Natural)', d.oferente.nombre)}
+    ${filaCampo('Nombre comercial', d.oferente.comercial)}
+    ${filaCampo('Fecha de nacimiento', d.oferente.fechaNac)}
+    ${filaCampo('Dirección', d.oferente.direccion)}
+    ${filaCampo('Teléfonos', d.oferente.telefono)}
+    ${filaCampo('Documento de identidad (DUI)', d.oferente.dui)}
+    ${filaCampo('NIT', d.oferente.nit)}
+    ${filaCampo('NRC', d.oferente.nrc)}
+    ${filaCampo('Persona de contacto', d.oferente.contacto)}
+    ${filaCampo('Correo para notificaciones', d.oferente.correo)}
+  </table>
+
+  <!-- CUADRO DE OFERTA -->
+  <table style="margin-bottom:4px;font-size:10.5px">
+    <thead>
+      <tr style="background:#14130F;color:#fff">
+        <th style="padding:8px 6px;border:1px solid #14130F;width:6%">ÍTEM</th>
+        <th style="padding:8px 6px;border:1px solid #14130F;width:8%">CANTIDAD</th>
+        <th style="padding:8px 6px;border:1px solid #14130F;width:8%">U/M</th>
+        <th style="padding:8px 6px;border:1px solid #14130F;width:16%">BIEN</th>
+        <th style="padding:8px 6px;border:1px solid #14130F">DESCRIPCIÓN DEL BIEN</th>
+        <th style="padding:8px 6px;border:1px solid #14130F;width:14%">PRECIO UNITARIO<br>(CON IVA)</th>
+        <th style="padding:8px 6px;border:1px solid #14130F;width:14%">PRECIO TOTAL<br>(CON IVA)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filas}
+      <tr style="background:#14130F;color:#fff">
+        <td colspan="6" style="padding:10px;text-align:right;font-weight:600;border:1px solid #14130F">TOTAL (CON IVA INCLUIDO)</td>
+        <td class="serif" style="padding:10px;text-align:right;font-weight:600;font-size:15px;color:#E6BE73;border:1px solid #14130F">${fmt(d.total)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- CONDICIONES -->
+  <table style="margin-top:16px;font-size:11.5px;background:#FBFAF7;border:1px solid #ECE8E0;border-radius:8px;overflow:hidden">
+    ${filaCampo('Validez de la oferta', d.validez)}
+    ${filaCampo('Forma de pago', d.formaPago)}
+    ${filaCampo('Forma de entrega', d.formaEntrega)}
+    ${filaCampo('Lugar donde se requiere el bien', d.lugarEntrega)}
+    ${filaCampo('Garantía de fabricación / funcionamiento', d.garantia)}
+  </table>
+
+  <!-- PÁGINA 2: DECLARACIÓN JURADA -->
+  <div class="page-break"></div>
+  <div style="height:2.5px;background:#14130F;border-radius:2px"></div>
+  <div style="height:2.5px;background:#C4923A;border-radius:2px;margin-top:2.5px;margin-bottom:20px;width:42%"></div>
+
+  <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:#A67C2E;font-weight:700;margin-bottom:10px">Declaración Jurada</div>
+
+  <p style="font-size:12px;color:#2A2823;line-height:1.85;text-align:justify">
+    ${declaracionTxt}
+  </p>
+
+  <!-- FIRMA Y SELLO -->
+  <div style="margin-top:70px">
+    <table>
+      <tr>
+        <td style="width:55%;padding-right:24px">
+          <div style="border-top:1.5px solid #14130F;padding-top:8px">
+            <div style="font-size:12px;color:#14130F;font-weight:600">${d.oferente.nombre}</div>
+            <div style="font-size:11px;color:#423E37;margin-top:2px">DUI: ${d.oferente.dui}</div>
+            <div style="font-size:11px;color:#8A857B;margin-top:1px">Firma y sello de la empresa</div>
+          </div>
+        </td>
+        <td style="width:45%"></td>
+      </tr>
+    </table>
+  </div>
+
+</body>
+</html>`;
+}
+
 // ───────────────────────────────────────────────────────────────────
 //  SYNC AL CRM (Supabase) — fire-and-forget, no bloquea la respuesta
 // ───────────────────────────────────────────────────────────────────
