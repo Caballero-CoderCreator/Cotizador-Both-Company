@@ -49,6 +49,44 @@ async function inicializarContador() {
   }
 }
 
+// ── Contador separado para cotizaciones de gobierno (COT-GOB-###) ──
+const COUNTER_GOB_FILE = path.join(__dirname, 'counter-gobierno.json');
+let quoteCounterGob = 0;
+try {
+  quoteCounterGob = JSON.parse(fs.readFileSync(COUNTER_GOB_FILE, 'utf8')).n || 0;
+} catch { quoteCounterGob = 0; }
+
+function nextQuoteNumberGob() {
+  quoteCounterGob++;
+  try { fs.writeFileSync(COUNTER_GOB_FILE, JSON.stringify({ n: quoteCounterGob }), 'utf8'); } catch {}
+  return `COT-GOB-${String(quoteCounterGob).padStart(3, '0')}`;
+}
+
+async function inicializarContadorGob() {
+  const SUPA_URL = process.env.SUPABASE_URL;
+  const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+  if (!SUPA_URL || !SUPA_KEY) return;
+  try {
+    const res  = await fetch(
+      `${SUPA_URL}/rest/v1/cotizaciones?numero=like.COT-GOB-*&select=numero&order=created_at.desc&limit=1`,
+      { headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` } }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0 && data[0].numero) {
+      const match = data[0].numero.match(/(\d+)$/);
+      if (match) {
+        const n = parseInt(match[1], 10);
+        if (n > quoteCounterGob) {
+          quoteCounterGob = n;
+          console.log(`[CounterGob] Retomando desde ${quoteCounterGob} (último: ${data[0].numero})`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[CounterGob] Error al sincronizar contador:', err.message);
+  }
+}
+
 function formatearPago(tipo, total) {
   const fmt = v => '$' + Number(v).toFixed(2);
   switch (tipo) {
@@ -703,8 +741,9 @@ async function guardarEnCRM(datos, pdfBuffer, opciones = {}) {
 // ───────────────────────────────────────────────────────────────────
 (async () => {
   await inicializarContador();
+  await inicializarContadorGob();
   app.listen(PORT, () => {
-    console.log(`✅ Both Company Cotizador corriendo en puerto ${PORT} (contador: ${quoteCounter})`);
+    console.log(`✅ Both Company Cotizador corriendo en puerto ${PORT} (com: ${quoteCounter} · gob: ${quoteCounterGob})`);
   });
 })();
 
