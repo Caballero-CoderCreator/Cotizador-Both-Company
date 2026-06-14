@@ -75,6 +75,27 @@ function fechaHoy() {
   });
 }
 
+// ── Datos legales fijos del oferente (Persona Natural) — versión Gobierno ──
+const { calcularItemsGobierno } = require('./gobierno-calc');
+
+const OFERENTE = {
+  nombre:        'JUAN RAMÓN CABALLERO MACHADO',
+  comercial:     'Both Company',
+  tipoPersona:   'natural',
+  fechaNac:      '27/07/1975',
+  direccion:     'Block 26, Senda 4, Urbanización Nuevo Lourdes, Casa #4, Colón, La Libertad',
+  dui:           '06556130-4',
+  nit:           '9615-270775-101-0',
+  nrc:           '251642-9',
+  giro:          'Comerciante — Venta al por mayor de otros productos',
+  contacto:      'Juan Ramón Caballero',
+  telefono:      '7585-9073',
+  correo:        'bothcompanysv@gmail.com',
+};
+
+const DECLARACION_DEFAULT =
+  'Manifiesto que la persona (natural/jurídica) {OFERENTE}, cuenta con la capacidad legal para poder ofertar y contratar con cualquier institución del Estado, según se establece en el art. 24 de LCP, ni se encuentra impedido para ofertar, acorde al art. 25 de LCP, ni está inhabilitado para participar en procesos de compras institucionales según se establece en el art. 181 de LCP; además declaro que "no empleo" a niños, niñas y adolescentes por debajo de la edad mínima de admisión al empleo, y se cumple con normativa vigente en El Salvador que prohíbe el trabajo infantil y de protección de la persona adolescente trabajadora" y tengo conocimiento que la {INSTITUCION}, está comprometida con los más altos estándares de ética y responsabilidad en todos nuestros procesos y relaciones comerciales. Por lo cual, la Municipalidad de San Salvador Centro ha implementado un Sistema de Gestión Antisoborno, de conformidad a lo establecido en el artículo 16, de la Ley de Compras Públicas, y en relación con la Norma ISO 37001, conforme a las mejores prácticas internacionales, con el objetivo de prevenir y erradicar cualquier forma de soborno o corrupción en nuestras operaciones, me comprometo a cumplir y hacer cumplir su Sistema de Gestión Antisoborno, lo cual incluye sus políticas, procedimientos y demás documentos de gestión, garantizando el cumplimiento de la legislación en materia de prevención de delitos y la gestión de riesgos de soborno, bajo el conocimiento que nuestra colaboración es crucial para fortalecer el compromiso conjunto en la lucha contra el soborno y la corrupción. Por lo tanto, ante el incumplimiento de la Política Antisoborno de la Alcaldía de San Salvador Centro o posibles hechos de soborno, se me aplicará el procedimiento establecido en el artículo 166 literal "d" de la LCP, lo que dará paso al procedimiento del artículo 158 de la Ley de Procedimientos Administrativos para la extinción de la relación comercial.';
+
 const app      = express();
 const PORT     = process.env.PORT || 3000;
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
