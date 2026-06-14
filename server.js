@@ -424,6 +424,64 @@ app.post('/actualizar', async (req, res) => {
   }
 });
 
+// ── SYSTEM PROMPT borrador gobierno ──
+const SYSTEM_PROMPT_GOB = `Eres el asistente que arma el cuadro de oferta para licitaciones del Estado de El Salvador de Both Company (uniformes y prendas personalizadas).
+
+A partir del mensaje/requerimiento del cliente, identifica cada bien a ofertar y devuelve un cuadro.
+
+REGLAS:
+1. Un objeto por cada bien distinto. Si hay tallas o variantes que comparten precio, agrúpalas en una sola línea y detállalas en la descripción.
+2. "bien" = nombre corto del producto (ej: "Polo tipo piqué"). "descripcion" = detalle completo (color, tela, tallas, bordado, etc.).
+3. "um" = unidad de medida, normalmente "Unidad". Para pares de calcetas usa "Par".
+4. "precioBase" = precio unitario SIN IVA (número). NO agregues IVA, el sistema lo calcula.
+5. "cantidad" = número entero.
+6. Responde ÚNICAMENTE con JSON válido, sin texto adicional ni markdown.
+
+FORMATO:
+{
+  "items": [
+    { "item": 1, "cantidad": 25, "um": "Unidad", "bien": "Polo tipo piqué", "descripcion": "Polo azul marino con logo bordado, tallas S/M/L", "precioBase": 12.50 }
+  ]
+}`;
+
+// ── POST /gobierno/borrador — la IA arma el cuadro, sin PDF ni correlativo ──
+app.post('/gobierno/borrador', async (req, res) => {
+  const { mensaje } = req.body;
+  if (!mensaje) return res.status(400).json({ error: 'Falta el mensaje del cliente.' });
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1500,
+      system: [{ type: 'text', text: SYSTEM_PROMPT_GOB, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: `Requerimiento del cliente:\n${mensaje}` }],
+    });
+
+    let datos;
+    try {
+      datos = JSON.parse(response.content[0].text);
+    } catch {
+      const match = response.content[0].text.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('La IA no devolvió JSON válido.');
+      datos = JSON.parse(match[0]);
+    }
+
+    const items = Array.isArray(datos.items) ? datos.items.map((it, i) => ({
+      item:        Number(it.item) || (i + 1),
+      cantidad:    Number(it.cantidad) || 0,
+      um:          it.um || 'Unidad',
+      bien:        it.bien || '',
+      descripcion: it.descripcion || '',
+      precioBase:  Number(it.precioBase) || 0,
+    })) : [];
+
+    res.json({ items });
+  } catch (err) {
+    console.error('Error en /gobierno/borrador:', err.message);
+    res.status(500).json({ error: 'Error al generar el borrador: ' + err.message });
+  }
+});
+
 // ───────────────────────────────────────────────────────────────────
 //  HTML DEL PDF
 // ───────────────────────────────────────────────────────────────────
