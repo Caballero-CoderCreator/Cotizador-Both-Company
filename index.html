@@ -753,15 +753,15 @@
     <div class="card" id="g_cond_card" style="display:none">
       <div class="card-title">Condiciones</div>
       <div class="form-row">
-        <div><label>Validez de la oferta</label><input type="text" id="g_validez" value="30 días" /></div>
-        <div><label>Forma de pago</label><input type="text" id="g_formaPago" value="Crédito a 30 días" /></div>
+        <div><label>Validez de la oferta</label><input type="text" id="g_validez" list="dl_validez" value="30 días" autocomplete="off" /></div>
+        <div><label>Forma de pago</label><input type="text" id="g_formaPago" list="dl_formaPago" value="Crédito a 30 días" autocomplete="off" /></div>
       </div>
       <div class="form-row">
-        <div><label>Forma de entrega</label><input type="text" id="g_formaEntrega" value="Entrega única" /></div>
-        <div><label>Lugar donde se requiere el bien</label><input type="text" id="g_lugar" /></div>
+        <div><label>Forma de entrega</label><input type="text" id="g_formaEntrega" list="dl_formaEntrega" value="Entrega única" autocomplete="off" /></div>
+        <div><label>Lugar donde se requiere el bien</label><input type="text" id="g_lugar" list="dl_lugar" autocomplete="off" /></div>
       </div>
       <div class="form-row">
-        <div><label>Garantía de fabricación / funcionamiento</label><input type="text" id="g_garantia" /></div>
+        <div><label>Garantía de fabricación / funcionamiento</label><input type="text" id="g_garantia" list="dl_garantia" autocomplete="off" /></div>
         <div>
           <label>Tipo de persona (declaración)</label>
           <select id="g_tipoPersona"><option value="natural" selected>Natural</option><option value="jurídica">Jurídica</option></select>
@@ -790,6 +790,43 @@
         </div>
       </div>
     </div>
+
+  <!-- OPCIONES PREDEFINIDAS (seleccionables + editables) -->
+  <datalist id="dl_validez">
+    <option value="15 días"></option>
+    <option value="30 días"></option>
+    <option value="45 días"></option>
+    <option value="60 días"></option>
+    <option value="90 días"></option>
+  </datalist>
+  <datalist id="dl_formaPago">
+    <option value="Contado"></option>
+    <option value="Crédito a 30 días"></option>
+    <option value="Crédito a 60 días"></option>
+    <option value="Crédito a 90 días"></option>
+    <option value="100% contra entrega"></option>
+    <option value="50% anticipo — 50% contra entrega"></option>
+  </datalist>
+  <datalist id="dl_formaEntrega">
+    <option value="Entrega única"></option>
+    <option value="Entregas parciales"></option>
+    <option value="Según programación de la institución"></option>
+    <option value="Inmediata"></option>
+  </datalist>
+  <datalist id="dl_lugar">
+    <option value="Instalaciones de la institución"></option>
+    <option value="Bodega central de la institución"></option>
+    <option value="Alcaldía de San Salvador Centro"></option>
+    <option value="San Salvador"></option>
+  </datalist>
+  <datalist id="dl_garantia">
+    <option value="No aplica"></option>
+    <option value="3 meses"></option>
+    <option value="6 meses"></option>
+    <option value="1 año"></option>
+    <option value="12 meses contra defectos de fabricación"></option>
+    <option value="Garantía de fabricación contra defectos de confección"></option>
+  </datalist>
 
   </div><!-- /#bloque-gobierno -->
 
