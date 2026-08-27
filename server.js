@@ -229,7 +229,7 @@ app.post('/cotizar', async (req, res) => {
 
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1500,
+      max_tokens: 8000,   // listas largas de prendas cortaban el JSON a la mitad con 1500
       system: [
         {
           type: 'text',
@@ -239,6 +239,10 @@ app.post('/cotizar', async (req, res) => {
       ],
       messages: [{ role: 'user', content: userPrompt }],
     });
+
+    if (response.stop_reason === 'max_tokens') {
+      throw new Error('La lista de prendas es demasiado larga para una sola cotización. Divídala en dos y vuelva a intentar.');
+    }
 
     // 2 — Parsear JSON
     let datos;
@@ -452,10 +456,14 @@ app.post('/gobierno/borrador', async (req, res) => {
   try {
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1500,
+      max_tokens: 8000,   // igual que /cotizar: 1500 truncaba los requerimientos largos
       system: [{ type: 'text', text: SYSTEM_PROMPT_GOB, cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: `Requerimiento del cliente:\n${mensaje}` }],
     });
+
+    if (response.stop_reason === 'max_tokens') {
+      throw new Error('El requerimiento es demasiado largo para un solo cuadro. Divídalo en dos y vuelva a intentar.');
+    }
 
     let datos;
     try {

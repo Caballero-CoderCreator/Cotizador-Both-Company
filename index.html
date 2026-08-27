@@ -890,8 +890,16 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-    .then(res => {
-      if (!res.ok) throw new Error('Error del servidor: ' + res.status);
+    .then(async res => {
+      if (!res.ok) {
+        // El servidor manda el motivo real en { error }. Mostrarlo tal cual.
+        let detalle = 'Error del servidor: ' + res.status;
+        try {
+          const cuerpo = await res.json();
+          if (cuerpo && cuerpo.error) detalle = cuerpo.error;
+        } catch {}
+        throw new Error(detalle);
+      }
       return res.json();
     })
     .then(data => {
@@ -900,7 +908,10 @@
     })
     .catch(err => {
       ocultarLoading();
-      mostrarError('No se pudo conectar con el servidor. Verifica que esté corriendo. (' + err.message + ')');
+      const esRed = err instanceof TypeError;
+      mostrarError(esRed
+        ? 'No se pudo conectar con el servidor. Verifica que esté corriendo.'
+        : err.message);
     });
   }
 
