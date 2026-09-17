@@ -962,9 +962,11 @@ async function guardarGobiernoEnCRM(datos, pdfBuffer) {
     'Content-Type': 'application/json', Accept: 'application/json',
   };
 
-  // Cliente = institución
+  // Cliente = institución. Búsqueda sin distinguir mayúsculas/minúsculas ni espacios
+  // extra para no crear perfiles duplicados ("Cosper" vs "COSPER").
+  const nombreInst = String(datos.institucion || '').trim().replace(/\s+/g, ' ');
   const searchRes = await fetch(
-    `${SUPA_URL}/rest/v1/clientes?nombre=eq.${encodeURIComponent(datos.institucion)}&limit=1&select=id`,
+    `${SUPA_URL}/rest/v1/clientes?nombre=ilike.${encodeURIComponent(nombreInst)}&limit=1&select=id`,
     { headers: h }
   );
   const encontrados = await searchRes.json();
@@ -974,7 +976,7 @@ async function guardarGobiernoEnCRM(datos, pdfBuffer) {
   } else {
     const insertRes = await fetch(`${SUPA_URL}/rest/v1/clientes`, {
       method: 'POST', headers: { ...h, Prefer: 'return=representation' },
-      body: JSON.stringify({ nombre: datos.institucion }),
+      body: JSON.stringify({ nombre: nombreInst }),
     });
     const [nuevo] = await insertRes.json();
     clienteId = nuevo?.id;
@@ -1023,9 +1025,11 @@ async function guardarEnCRM(datos, pdfBuffer, opciones = {}) {
     Accept: 'application/json',
   };
 
-  // 1 — Buscar cliente existente por nombre exacto
+  // 1 — Buscar cliente existente por nombre, sin distinguir mayúsculas/minúsculas
+  //     ni espacios extra (antes "Cosper" y "COSPER" creaban dos perfiles).
+  const nombreCliente = String(datos.cliente || '').trim().replace(/\s+/g, ' ');
   const searchRes = await fetch(
-    `${SUPA_URL}/rest/v1/clientes?nombre=eq.${encodeURIComponent(datos.cliente)}&limit=1&select=id`,
+    `${SUPA_URL}/rest/v1/clientes?nombre=ilike.${encodeURIComponent(nombreCliente)}&limit=1&select=id`,
     { headers: h }
   );
   const encontrados = await searchRes.json();
@@ -1038,7 +1042,7 @@ async function guardarEnCRM(datos, pdfBuffer, opciones = {}) {
     const insertRes = await fetch(`${SUPA_URL}/rest/v1/clientes`, {
       method: 'POST',
       headers: { ...h, Prefer: 'return=representation' },
-      body: JSON.stringify({ nombre: datos.cliente }),
+      body: JSON.stringify({ nombre: nombreCliente }),
     });
     const [nuevoCliente] = await insertRes.json();
     clienteId = nuevoCliente?.id;
