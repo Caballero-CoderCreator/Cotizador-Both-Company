@@ -10,6 +10,39 @@ const puppeteer = require('puppeteer');
 const LOGO_B64 = 'data:image/jpeg;base64,' +
   fs.readFileSync(path.join(__dirname, 'logo.jpeg')).toString('base64');
 
+// ── Chrome compartido para generar PDFs ──
+// Lanzar un Chrome por cotización dejaba procesos colgados en Railway hasta agotar
+// el límite ("fork: Resource temporarily unavailable"). Se reutiliza uno solo y se
+// relanza si se cae.
+let browserPromise = null;
+function getBrowser() {
+  if (!browserPromise) {
+    browserPromise = puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    }).then(browser => {
+      browser.on('disconnected', () => { browserPromise = null; });
+      return browser;
+    }).catch(err => {
+      browserPromise = null;
+      throw err;
+    });
+  }
+  return browserPromise;
+}
+
+async function htmlToPdf(html, margin) {
+  const browser = await getBrowser();
+  const page    = await browser.newPage();
+  try {
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.evaluateHandle('document.fonts.ready');
+    return await page.pdf({ format: 'A4', margin, printBackground: true });
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
 // ── Contador secuencial de cotizaciones ──
 // Se inicializa desde Supabase al arrancar para sobrevivir reinicios en Railway
 const COUNTER_FILE = path.join(__dirname, 'counter.json');
@@ -269,20 +302,8 @@ app.post('/cotizar', async (req, res) => {
     datos.formaPago = formatearPago(formaPago, datos.total);
 
     // 3 — Generar HTML → PDF con Puppeteer
-    const html       = generarHtmlCotizacion(datos, conBanco, conFirma, LOGO_B64);
-    const browser    = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    await page.evaluateHandle('document.fonts.ready');
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      margin: { top: '15mm', right: '20mm', bottom: '15mm', left: '20mm' },
-      printBackground: true,
-    });
-    await browser.close();
+    const html      = generarHtmlCotizacion(datos, conBanco, conFirma, LOGO_B64);
+    const pdfBuffer = await htmlToPdf(html, { top: '15mm', right: '20mm', bottom: '15mm', left: '20mm' });
 
     res.json({
       numero:      datos.numero,
@@ -339,20 +360,8 @@ app.post('/actualizar', async (req, res) => {
     };
 
     // Generar PDF con Puppeteer
-    const html    = generarHtmlCotizacion(datos, conBanco, conFirma, LOGO_B64);
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    await page.evaluateHandle('document.fonts.ready');
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      margin: { top: '15mm', right: '20mm', bottom: '15mm', left: '20mm' },
-      printBackground: true,
-    });
-    await browser.close();
+    const html      = generarHtmlCotizacion(datos, conBanco, conFirma, LOGO_B64);
+    const pdfBuffer = await htmlToPdf(html, { top: '15mm', right: '20mm', bottom: '15mm', left: '20mm' });
 
     const SUPA_URL = process.env.SUPABASE_URL;
     const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
@@ -520,20 +529,8 @@ app.post('/gobierno/generar', async (req, res) => {
       declaracion:  declaracion || DECLARACION_DEFAULT,
     };
 
-    const html    = generarHtmlCotizacionGobierno(datos, LOGO_B64);
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    await page.evaluateHandle('document.fonts.ready');
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      margin: { top: '15mm', right: '16mm', bottom: '15mm', left: '16mm' },
-      printBackground: true,
-    });
-    await browser.close();
+    const html      = generarHtmlCotizacionGobierno(datos, LOGO_B64);
+    const pdfBuffer = await htmlToPdf(html, { top: '15mm', right: '16mm', bottom: '15mm', left: '16mm' });
 
     res.json({
       numero:      datos.numero,
